@@ -38,24 +38,16 @@ export default function Home() {
           
           console.log('All workspaces data:', data);
           
-          // Map the workspaces to include the role
-          const workspacesWithRole = data.map((w: any) => {
-            const memberInfo = w.members.find((m: any) => m.userId === session.user?.email);
-            return {
-              id: w.id,
-              name: w.name,
-              role: memberInfo?.role
-            };
-          });
-
-          // Filter based on role
-          const owned = workspacesWithRole.filter((w: { role?: string }) => w.role === 'owner');
-          const member = workspacesWithRole.filter((w: { role?: string }) => w.role === 'member');
-          
+          const owned = data.filter((w: any) => 
+            w.members?.some((m: any) => m.userId === session.user?.email && m.role === 'owner')
+          );
           console.log('Owned workspaces:', owned);
-          console.log('Member workspaces:', member);
-          
           setOwnedWorkspaces(owned);
+
+          const member = data.filter((w: any) => 
+            w.members?.some((m: any) => m.userId === session.user?.email && m.role === 'member')
+          );
+          console.log('Member workspaces:', member);
           setMemberWorkspaces(member);
           
           // Fetch invites
