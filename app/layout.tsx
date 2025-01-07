@@ -2,7 +2,6 @@
 
 import './globals.css';
 import { SessionProvider } from 'next-auth/react';
-import Navbar from './components/navbar';
 
 export default function RootLayout({
   children,
@@ -13,7 +12,6 @@ export default function RootLayout({
     <html lang="en">
       <body className="bg-background text-foreground">
         <SessionProvider>
-          <Navbar />
           {children}
         </SessionProvider>
       </body>

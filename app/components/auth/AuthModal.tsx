@@ -43,7 +43,7 @@ export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
           const data = await res.json();
           setError(data.error || 'Something went wrong');
         }
-      } catch (err) {
+      } catch {
         setError('Failed to sign up');
       }
     } else {
@@ -60,7 +60,7 @@ export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
         } else {
           onClose();
         }
-      } catch (err) {
+      } catch {
         setError('Failed to sign in');
       }
     }

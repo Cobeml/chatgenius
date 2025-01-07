@@ -21,7 +21,7 @@ body {
     focus:outline-none;
   }
 
-  .input {
+  .input, textarea {
     @apply bg-white text-black px-4 py-2 rounded-md
     placeholder:text-gray-500 
     focus:outline-none focus:ring-2 focus:ring-primary-hover;

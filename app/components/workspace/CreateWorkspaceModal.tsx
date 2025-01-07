@@ -23,7 +23,11 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
       const res = await fetch('/api/workspaces', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({
+          name,
+          members: [],
+          invites: [],
+        }),
       });
 
       if (res.ok) {
@@ -34,7 +38,7 @@ export default function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspac
         const data = await res.json();
         setError(data.error || 'Failed to create workspace');
       }
-    } catch (err) {
+    } catch {
       setError('Failed to create workspace');
     } finally {
       setIsLoading(false);

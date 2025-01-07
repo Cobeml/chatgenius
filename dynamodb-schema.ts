@@ -9,6 +9,11 @@ export interface DynamoDBSchemas {
     id: string;
     name: string;
     ownerId: string;
+    members: {
+      userId: string;
+      role: 'owner' | 'admin' | 'member';
+    }[];
+    invites: string[];
     createdAt: string;
     updatedAt: string;
   };
@@ -18,6 +23,7 @@ export interface DynamoDBSchemas {
     id: string;
     name: string;
     isPrivate: boolean;
+    position: number;
     createdAt: string;
     updatedAt: string;
   };
