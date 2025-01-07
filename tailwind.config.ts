@@ -8,9 +8,20 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+      },
       colors: {
         background: "var(--background)",
         foreground: "var(--foreground)",
+        primary: {
+          DEFAULT: "#000000",
+          hover: "#CC0066",
+        },
+        text: {
+          DEFAULT: "#FFE4E8",
+          hover: "#FFFFFF",
+        }
       },
     },
   },

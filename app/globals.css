@@ -3,19 +3,27 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --background: #000000;
+  --foreground: #FFE4E8;
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+@layer components {
+  .btn {
+    @apply bg-primary text-text px-4 py-2 rounded-md border border-primary-hover
+    transition-colors duration-200 
+    hover:bg-primary-hover hover:text-text-hover hover:border-primary-hover
+    focus:outline-none;
+  }
+
+  .input {
+    @apply bg-white text-black px-4 py-2 rounded-md
+    placeholder:text-gray-500 
+    focus:outline-none focus:ring-2 focus:ring-primary-hover;
+  }
 }
