@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { DynamoDB } from 'aws-sdk';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@/app/api/auth/[...nextauth]/auth';
 
 const dynamodb = new DynamoDB.DocumentClient();
 const WORKSPACES_TABLE = process.env.AWS_DYNAMODB_WORKSPACES_TABLE;

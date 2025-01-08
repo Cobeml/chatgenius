@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/app/api/auth/[...nextauth]/auth";
 import { dynamoDb } from "@/utils/aws-config";
 import { v4 as uuidv4 } from "uuid";
 import { DynamoDBSchemas } from "@/dynamodb-schema";
