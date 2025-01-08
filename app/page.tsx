@@ -38,13 +38,27 @@ export default function Home() {
           
           console.log('All workspaces data:', data);
           
-          const owned = data.filter((w: Workspace) => w.role === 'owner');
-          console.log('Owned workspaces:', owned);
-          setOwnedWorkspaces(owned);
+          const owned = data.filter((w: any) => 
+            w.members.some((m: any) => 
+              m.userId === session.user?.email && m.role === 'owner'
+            )
+          );
+          setOwnedWorkspaces(owned.map((w: any) => ({
+            id: w.id,
+            name: w.name,
+            role: 'owner' as const
+          })));
 
-          const member = data.filter((w: Workspace) => w.role === 'member');
-          console.log('Member workspaces:', member);
-          setMemberWorkspaces(member);
+          const member = data.filter((w: any) => 
+            w.members.some((m: any) => 
+              m.userId === session.user?.email && m.role === 'member'
+            )
+          );
+          setMemberWorkspaces(member.map((w: any) => ({
+            id: w.id,
+            name: w.name,
+            role: 'member' as const
+          })));
           
           // Fetch invites
           const invitesResponse = await fetch('/api/user/workspace-invites');

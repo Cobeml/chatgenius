@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { DynamoDB } from 'aws-sdk';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth';
+import { DynamoDBSchemas } from '@/dynamodb-schema';
 
 const dynamodb = new DynamoDB.DocumentClient();
 const WORKSPACES_TABLE = process.env.AWS_DYNAMODB_WORKSPACES_TABLE;
@@ -45,16 +46,20 @@ export async function POST(request: Request) {
 
     const userEmail = session.user.email;
 
+    // Add check for existing member
+    if (workspace.members?.some((member: DynamoDBSchemas['Workspaces']['members'][0]) => 
+      member.userId === userEmail
+    )) {
+      return NextResponse.json({ error: 'Already a member' }, { status: 400 });
+    }
+
     const updateParams = {
       TableName: WORKSPACES_TABLE,
       Key: { id: workspaceId },
       UpdateExpression: `
-        SET members = list_append(
-          if_not_exists(members, :empty_list),
-          :new_member
-        ),
-        invites = :updated_invites,
-        updatedAt = :timestamp
+        SET members = list_append(if_not_exists(members, :empty_list), :new_member),
+            invites = :updated_invites,
+            updatedAt = :timestamp
       `,
       ExpressionAttributeValues: {
         ':empty_list': [],
@@ -65,7 +70,7 @@ export async function POST(request: Request) {
         ':updated_invites': workspace.invites.filter((email: string) => email !== userEmail),
         ':timestamp': new Date().toISOString()
       },
-      ReturnValues: 'ALL_NEW'
+      ConditionExpression: 'attribute_exists(id)'
     };
 
     console.log('Updating workspace with params:', updateParams);
