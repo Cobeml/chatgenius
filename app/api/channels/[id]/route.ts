@@ -7,7 +7,7 @@ const dynamoDb = new DynamoDB.DocumentClient();
 
 export async function GET(
   request: Request,
-  context: { params: { id: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -16,7 +16,7 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const id = context.params.id;
+    const id = params.id;
     const { searchParams } = new URL(request.url);
     const workspaceId = searchParams.get('workspaceId');
 
