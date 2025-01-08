@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { s3, dynamoDb } from "@/utils/aws-config";
+import { s3 } from "@/utils/aws-config";
 
 export async function POST(request: Request) {
   try {

@@ -23,10 +23,6 @@ interface WorkspaceData {
   ownerId: string;
 }
 
-interface DraggableStyle {
-  [key: string]: string | number;
-}
-
 const getItemStyle = (isDragging: boolean, draggableStyle: CSSProperties | undefined): CSSProperties => ({
   userSelect: 'none' as const,
   padding: "0.375rem 0.5rem",
