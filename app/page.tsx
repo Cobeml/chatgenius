@@ -19,13 +19,6 @@ interface WorkspaceInvite {
   inviterId: string;
 }
 
-interface WorkspaceData {
-  members: Array<{
-    userId: string;
-    role: 'owner' | 'member';
-  }>;
-}
-
 export default function Home() {
   const { data: session } = useSession();
   const [showSignIn, setShowSignIn] = useState(false);
