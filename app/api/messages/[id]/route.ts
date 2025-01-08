@@ -7,7 +7,7 @@ const dynamoDb = new DynamoDB.DocumentClient();
 
 export async function GET(
   request: Request,
-  context: { params: { id: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -17,7 +17,7 @@ export async function GET(
     }
 
     // Safely access the id parameter
-    const { id } = context.params;
+    const { id } = params;
     const channelId = id;
 
     const queryParams = {

@@ -50,9 +50,9 @@ export default function Home() {
           console.log('All workspaces data:', data);
           
           const owned = data.filter((w) => 
-            w.members.some((m) => 
+            w.members?.some?.((m) => 
               m.userId === session.user?.email && m.role === 'owner'
-            )
+            ) || false
           );
           setOwnedWorkspaces(owned.map((w) => ({
             id: w.id,
@@ -61,9 +61,9 @@ export default function Home() {
           })));
 
           const member = data.filter((w) => 
-            w.members.some((m) => 
+            w.members?.some?.((m) => 
               m.userId === session.user?.email && m.role === 'member'
-            )
+            ) || false
           );
           setMemberWorkspaces(member.map((w) => ({
             id: w.id,

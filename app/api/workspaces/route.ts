@@ -22,14 +22,25 @@ export async function POST(request: Request) {
     const workspaceId = uuidv4();
     const timestamp = new Date().toISOString();
 
+    // Create initial members array with owner
+    const initialMembers = [
+      { userId: session.user.email, role: 'owner' as const }
+    ];
+
+    // Add additional members if any
+    const allMembers = [
+      ...initialMembers,
+      ...members.map((m: { userId: string }) => ({ 
+        userId: m.userId, 
+        role: 'member' as const 
+      }))
+    ];
+
     const workspaceItem: DynamoDBSchemas['Workspaces'] = {
       id: workspaceId,
       name: name.trim(),
       ownerId: session.user.email,
-      members: [
-        { userId: session.user.email, role: 'owner' },
-        ...members.map((m: { userId: string }) => ({ userId: m.userId, role: 'member' as const }))
-      ],
+      members: allMembers,
       invites: invites,
       createdAt: timestamp,
       updatedAt: timestamp
@@ -40,7 +51,14 @@ export async function POST(request: Request) {
       Item: workspaceItem
     }).promise();
 
-    return NextResponse.json(workspaceItem);
+    // Return the exact structure expected by the frontend
+    return NextResponse.json({
+      id: workspaceId,
+      name: name.trim(),
+      members: allMembers,
+      ownerId: session.user.email
+    });
+
   } catch (error: unknown) {
     console.error("Create workspace error:", error);
     return NextResponse.json({ error: "Failed to create workspace" }, { status: 500 });
