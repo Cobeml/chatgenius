@@ -19,6 +19,17 @@ interface WorkspaceInvite {
   inviterId: string;
 }
 
+interface WorkspaceMember {
+  userId: string;
+  role: 'owner' | 'member';
+}
+
+interface WorkspaceData {
+  id: string;
+  name: string;
+  members: WorkspaceMember[];
+}
+
 export default function Home() {
   const { data: session } = useSession();
   const [showSignIn, setShowSignIn] = useState(false);
@@ -34,27 +45,27 @@ export default function Home() {
         try {
           const response = await fetch('/api/user/workspaces');
           if (!response.ok) throw new Error('Failed to fetch workspaces');
-          const data = await response.json();
+          const data: WorkspaceData[] = await response.json();
           
           console.log('All workspaces data:', data);
           
-          const owned = data.filter((w: any) => 
-            w.members.some((m: any) => 
+          const owned = data.filter((w) => 
+            w.members.some((m) => 
               m.userId === session.user?.email && m.role === 'owner'
             )
           );
-          setOwnedWorkspaces(owned.map((w: any) => ({
+          setOwnedWorkspaces(owned.map((w) => ({
             id: w.id,
             name: w.name,
             role: 'owner' as const
           })));
 
-          const member = data.filter((w: any) => 
-            w.members.some((m: any) => 
+          const member = data.filter((w) => 
+            w.members.some((m) => 
               m.userId === session.user?.email && m.role === 'member'
             )
           );
-          setMemberWorkspaces(member.map((w: any) => ({
+          setMemberWorkspaces(member.map((w) => ({
             id: w.id,
             name: w.name,
             role: 'member' as const
