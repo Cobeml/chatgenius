@@ -19,6 +19,13 @@ interface WorkspaceInvite {
   inviterId: string;
 }
 
+interface WorkspaceData {
+  members: Array<{
+    userId: string;
+    role: 'owner' | 'member';
+  }>;
+}
+
 export default function Home() {
   const { data: session } = useSession();
   const [showSignIn, setShowSignIn] = useState(false);
@@ -38,14 +45,14 @@ export default function Home() {
           
           console.log('All workspaces data:', data);
           
-          const owned = data.filter((w: any) => 
-            w.members?.some((m: any) => m.userId === session.user?.email && m.role === 'owner')
+          const owned = data.filter((w: WorkspaceData) => 
+            w.members?.some((m) => m.userId === session.user?.email && m.role === 'owner')
           );
           console.log('Owned workspaces:', owned);
           setOwnedWorkspaces(owned);
 
-          const member = data.filter((w: any) => 
-            w.members?.some((m: any) => m.userId === session.user?.email && m.role === 'member')
+          const member = data.filter((w: WorkspaceData) => 
+            w.members?.some((m) => m.userId === session.user?.email && m.role === 'member')
           );
           console.log('Member workspaces:', member);
           setMemberWorkspaces(member);

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ScrollArea } from "@/app/components/ui/scroll-area";
 import { MessageInput } from "@/app/components/workspace/MessageInput";
 import { InviteModal } from "@/app/components/workspace/InviteModal";
@@ -38,7 +38,7 @@ export default function WorkspaceClient({ workspaceId, userRole }: WorkspaceClie
 
   const isAdmin = userRole === 'owner' || userRole === 'admin';
 
-  const fetchMessages = async () => {
+  const fetchMessages = useCallback(async () => {
     if (!selectedChannelId) return;
     
     setIsLoading(true);
@@ -59,9 +59,9 @@ export default function WorkspaceClient({ workspaceId, userRole }: WorkspaceClie
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [selectedChannelId]);
 
-  const fetchChannelDetails = async () => {
+  const fetchChannelDetails = useCallback(async () => {
     if (!selectedChannelId) return;
     
     setIsLoading(true);
@@ -75,14 +75,14 @@ export default function WorkspaceClient({ workspaceId, userRole }: WorkspaceClie
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [selectedChannelId, workspaceId]);
 
   useEffect(() => {
-    if (selectedChannelId && workspaceId) {
-      fetchChannelDetails();
+    if (selectedChannelId) {
       fetchMessages();
+      fetchChannelDetails();
     }
-  }, [selectedChannelId, workspaceId]);
+  }, [selectedChannelId, fetchMessages, fetchChannelDetails]);
 
   const handleFileDownload = (fileUrl: string) => {
     const downloadUrl = `/api/download?file=${encodeURIComponent(fileUrl)}`;

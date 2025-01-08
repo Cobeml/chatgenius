@@ -1,13 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ScrollArea } from "@/app/components/ui/scroll-area";
 import { Hash, Plus, Settings } from "lucide-react";
 import { SettingsModal } from "@/app/components/workspace/SettingsModal";
-import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/app/components/ui/dialog";
 import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from 'next/navigation';
+import type { CSSProperties } from 'react';
 
 interface Channel {
   id: string;
@@ -22,13 +23,17 @@ interface WorkspaceData {
   ownerId: string;
 }
 
-const getItemStyle = (isDragging: boolean, draggableStyle: any) => ({
-  userSelect: "none",
+interface DraggableStyle {
+  [key: string]: string | number;
+}
+
+const getItemStyle = (isDragging: boolean, draggableStyle: CSSProperties | undefined): CSSProperties => ({
+  userSelect: 'none' as const,
   padding: "0.375rem 0.5rem",
   marginBottom: "0.25rem",
   background: isDragging ? "hsl(var(--accent))" : "transparent",
   borderRadius: "0.375rem",
-  ...draggableStyle
+  ...(draggableStyle || {})
 });
 
 const getListStyle = (isDraggingOver: boolean) => ({
@@ -48,7 +53,7 @@ export function Sidebar({ workspaceId }: { workspaceId: string }) {
   const [isNewChannelModalOpen, setIsNewChannelModalOpen] = useState(false);
   const [newChannelName, setNewChannelName] = useState('');
 
-  const fetchWorkspaceData = async () => {
+  const fetchWorkspaceData = useCallback(async () => {
     try {
       const res = await fetch(`/api/workspaces/${workspaceId}`);
       const data = await res.json();
@@ -56,9 +61,9 @@ export function Sidebar({ workspaceId }: { workspaceId: string }) {
     } catch (error) {
       console.error('Failed to fetch workspace:', error);
     }
-  };
+  }, [workspaceId]);
 
-  const fetchChannels = async () => {
+  const fetchChannels = useCallback(async () => {
     try {
       const res = await fetch(`/api/channels?workspaceId=${workspaceId}`);
       const data = await res.json();
@@ -66,12 +71,12 @@ export function Sidebar({ workspaceId }: { workspaceId: string }) {
     } catch (error) {
       console.error('Failed to fetch channels:', error);
     }
-  };
+  }, [workspaceId]);
 
   useEffect(() => {
     fetchWorkspaceData();
     fetchChannels();
-  }, [workspaceId]);
+  }, [workspaceId, fetchWorkspaceData, fetchChannels]);
 
   const handleCreateChannel = async () => {
     try {
@@ -94,7 +99,7 @@ export function Sidebar({ workspaceId }: { workspaceId: string }) {
     }
   };
 
-  const handleDragEnd = async (result: any) => {
+  const handleDragEnd = async (result: DropResult) => {
     if (!result.destination) return;
 
     const items = Array.from(channels);

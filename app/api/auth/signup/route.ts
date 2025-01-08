@@ -30,11 +30,11 @@ export async function POST(request: Request) {
     }).promise();
 
     return NextResponse.json({ message: "User created successfully" }, { status: 201 });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Signup error:', error);
     return NextResponse.json({ 
       error: "Failed to create user",
-      details: error.message 
+      details: error instanceof Error ? error.message : "Unknown error"
     }, { status: 500 });
   }
 } 
