@@ -65,13 +65,21 @@ export default function Home() {
   const WorkspaceSection = ({ title, workspaces, type }: { title: string, workspaces: Workspace[] | WorkspaceInvite[], type: 'workspace' | 'invite' }) => {
     const handleAcceptInvite = async (workspaceId: string) => {
       try {
+        console.log('Accepting invite for workspace:', workspaceId);
         const response = await fetch('/api/workspaces/accept-invite', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ workspaceId })
         });
 
-        if (!response.ok) throw new Error('Failed to accept invite');
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error('Failed to accept invite:', errorData);
+          throw new Error(errorData.error || 'Failed to accept invite');
+        }
+
+        const result = await response.json();
+        console.log('Successfully accepted invite:', result);
 
         // Refresh the page to update the workspace lists
         window.location.reload();

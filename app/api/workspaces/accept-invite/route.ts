@@ -20,6 +20,7 @@ export async function POST(request: Request) {
 
   try {
     const { workspaceId } = await request.json();
+    console.log('Processing invite acceptance:', { workspaceId, userEmail: session.user.email });
 
     // Get the workspace
     const { Item: workspace } = await dynamodb.get({
@@ -27,17 +28,24 @@ export async function POST(request: Request) {
       Key: { id: workspaceId }
     }).promise();
 
+    console.log('Found workspace:', workspace);
+
     if (!workspace) {
       return NextResponse.json({ error: 'Workspace not found' }, { status: 404 });
     }
 
     // Check if user is invited
     if (!workspace.invites?.includes(session.user.email)) {
+      console.log('User not found in invites:', { 
+        invites: workspace.invites, 
+        userEmail: session.user.email 
+      });
       return NextResponse.json({ error: 'No invite found' }, { status: 403 });
     }
 
-    // Remove user from invites and add to members
-    await dynamodb.update({
+    const userEmail = session.user.email;
+
+    const updateParams = {
       TableName: WORKSPACES_TABLE,
       Key: { id: workspaceId },
       UpdateExpression: `
@@ -54,11 +62,15 @@ export async function POST(request: Request) {
           userId: session.user.email,
           role: 'member'
         }],
-        ':updated_invites': workspace.invites.filter((email: string) => email !== session!.user!.email),
+        ':updated_invites': workspace.invites.filter((email: string) => email !== userEmail),
         ':timestamp': new Date().toISOString()
       },
-      ReturnValues: 'ALL_NEW'  // This will help us debug by returning the updated item
-    }).promise();
+      ReturnValues: 'ALL_NEW'
+    };
+
+    console.log('Updating workspace with params:', updateParams);
+    const updateResult = await dynamodb.update(updateParams).promise();
+    console.log('Update result:', updateResult);
 
     return NextResponse.json({ success: true });
   } catch (error) {
