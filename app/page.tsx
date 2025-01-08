@@ -45,15 +45,11 @@ export default function Home() {
           
           console.log('All workspaces data:', data);
           
-          const owned = data.filter((w: WorkspaceData) => 
-            w.members?.some((m) => m.userId === session.user?.email && m.role === 'owner')
-          );
+          const owned = data.filter((w: Workspace) => w.role === 'owner');
           console.log('Owned workspaces:', owned);
           setOwnedWorkspaces(owned);
 
-          const member = data.filter((w: WorkspaceData) => 
-            w.members?.some((m) => m.userId === session.user?.email && m.role === 'member')
-          );
+          const member = data.filter((w: Workspace) => w.role === 'member');
           console.log('Member workspaces:', member);
           setMemberWorkspaces(member);
           

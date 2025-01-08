@@ -7,7 +7,7 @@ const dynamoDb = new DynamoDB.DocumentClient();
 
 export async function GET(
   request: Request,
-  context: { params: { id: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -16,7 +16,7 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id } = context.params;
+    const id = params.id;
     const { searchParams } = new URL(request.url);
     const workspaceId = searchParams.get('workspaceId');
 
@@ -24,7 +24,7 @@ export async function GET(
       return NextResponse.json({ error: "Workspace ID is required" }, { status: 400 });
     }
 
-    const params = {
+    const dbParams = {
       TableName: process.env.AWS_DYNAMODB_CHANNELS_TABLE!,
       Key: {
         workspaceId: workspaceId,
@@ -32,7 +32,7 @@ export async function GET(
       }
     };
 
-    const result = await dynamoDb.get(params).promise();
+    const result = await dynamoDb.get(dbParams).promise();
     
     if (!result.Item) {
       return NextResponse.json({ error: "Channel not found" }, { status: 404 });
