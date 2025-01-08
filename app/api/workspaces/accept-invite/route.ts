@@ -59,8 +59,8 @@ export async function POST(request: Request) {
       ExpressionAttributeValues: {
         ':empty_list': [],
         ':new_member': [{
-          userId: session.user.email,
-          role: 'member'
+          userId: userEmail,
+          role: 'member' as const
         }],
         ':updated_invites': workspace.invites.filter((email: string) => email !== userEmail),
         ':timestamp': new Date().toISOString()

@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/auth";
 import { DynamoDB } from 'aws-sdk';
@@ -6,7 +6,7 @@ import { DynamoDB } from 'aws-sdk';
 const dynamoDb = new DynamoDB.DocumentClient();
 
 export async function GET(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
