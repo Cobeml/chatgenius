@@ -7,7 +7,7 @@ const dynamoDb = new DynamoDB.DocumentClient();
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -15,9 +15,10 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { id } = await params;
     const result = await dynamoDb.get({
       TableName: process.env.AWS_DYNAMODB_WORKSPACES_TABLE!,
-      Key: { id: params.id }
+      Key: { id }
     }).promise();
 
     if (!result.Item) {
@@ -33,7 +34,7 @@ export async function GET(
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -41,10 +42,11 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { id } = await params;
     const updates = await request.json();
     const updateParams = {
       TableName: process.env.AWS_DYNAMODB_WORKSPACES_TABLE!,
-      Key: { id: params.id },
+      Key: { id },
       UpdateExpression: 'set #name = :name, members = :members, updatedAt = :updatedAt',
       ExpressionAttributeNames: {
         '#name': 'name'

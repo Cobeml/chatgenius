@@ -114,7 +114,7 @@ export default function Home() {
       }
     };
 
-    return workspaces.length > 0 && (
+    return (
       <div className="w-full">
         <h3 className="text-sm font-medium text-text/60 mb-2">{title}</h3>
         <div className="flex flex-col gap-2">
@@ -190,9 +190,15 @@ export default function Home() {
                   Create Workspace
                 </button>
                 <div className="w-full space-y-4">
-                  <WorkspaceSection title="Your Workspaces" workspaces={ownedWorkspaces} type="workspace" />
-                  <WorkspaceSection title="Member Workspaces" workspaces={memberWorkspaces} type="workspace" />
-                  <WorkspaceSection title="Pending Invites" workspaces={workspaceInvites} type="invite" />
+                  {ownedWorkspaces.length > 0 && (
+                    <WorkspaceSection title="Your Workspaces" workspaces={ownedWorkspaces} type="workspace" />
+                  )}
+                  {memberWorkspaces.length > 0 && (
+                    <WorkspaceSection title="Member Workspaces" workspaces={memberWorkspaces} type="workspace" />
+                  )}
+                  {workspaceInvites.length > 0 && (
+                    <WorkspaceSection title="Pending Invites" workspaces={workspaceInvites} type="invite" />
+                  )}
                 </div>
               </div>
             ) : (
