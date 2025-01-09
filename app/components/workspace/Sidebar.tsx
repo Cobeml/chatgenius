@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { ScrollArea } from "@/app/components/ui/scroll-area";
-import { Hash, Plus, Settings, ChevronLeft } from "lucide-react";
+import { Hash, Plus, Settings } from "lucide-react";
 import { SettingsModal } from "@/app/components/workspace/SettingsModal";
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/app/components/ui/dialog";
@@ -51,7 +51,6 @@ export function Sidebar({ workspaceId }: { workspaceId: string }) {
   const [isNewChannelModalOpen, setIsNewChannelModalOpen] = useState(false);
   const [newChannelName, setNewChannelName] = useState('');
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState(false);
 
   const isAdmin = workspace?.userRole === 'owner' || workspace?.userRole === 'admin';
 
@@ -146,50 +145,29 @@ export function Sidebar({ workspaceId }: { workspaceId: string }) {
     router.push(`/workspace/${workspaceId}?channel=${channelId}`);
   };
 
-  if (isCollapsed) {
-    return (
-      <button 
-        onClick={() => setIsCollapsed(false)}
-        className="absolute top-4 left-4 z-50 hover:bg-accent/50 p-2 rounded-md bg-gray-100 dark:bg-gray-800 shadow-md"
-      >
-        <ChevronLeft className="h-4 w-4 rotate-180" />
-      </button>
-    );
-  }
-
   return (
-    <div className="w-64 bg-gray-100 dark:bg-gray-800 h-full rounded-r-xl flex flex-col">
+    <div className="w-64 border-r bg-muted/50 flex flex-col">
       {/* Workspace Header */}
       <div className="h-14 border-b flex items-center justify-between px-4">
         <h2 className="font-semibold truncate">{workspace?.name || 'Loading...'}</h2>
-        <div className="flex items-center gap-2">
-          {isAdmin && (
-            <button onClick={() => setIsSettingsModalOpen(true)}>
-              <Settings className="h-4 w-4" />
-            </button>
-          )}
-          <button 
-            onClick={() => setIsCollapsed(true)}
-            className="hover:bg-accent/50 p-1 rounded-md"
-          >
-            <ChevronLeft className="h-4 w-4" />
+        {isAdmin && (
+          <button onClick={() => setIsSettingsModalOpen(true)}>
+            <Settings className="h-4 w-4" />
           </button>
-        </div>
+        )}
       </div>
 
       {/* Channels */}
       <ScrollArea className="flex-1 px-2">
         <div className="py-2">
-          {!isCollapsed && (
-            <div className="flex items-center justify-between px-2 mb-2">
-              <h3 className="text-sm font-semibold text-muted-foreground">Channels</h3>
-              {isAdmin && (
-                <button onClick={() => setIsNewChannelModalOpen(true)}>
-                  <Plus className="h-3 w-3" />
-                </button>
-              )}
-            </div>
-          )}
+          <div className="flex items-center justify-between px-2 mb-2">
+            <h3 className="text-sm font-semibold text-muted-foreground">Channels</h3>
+            {isAdmin && (
+              <button onClick={() => setIsNewChannelModalOpen(true)}>
+                <Plus className="h-3 w-3" />
+              </button>
+            )}
+          </div>
           <DragDropContext onDragEnd={handleDragEnd}>
             <Droppable droppableId="channels">
               {(provided, snapshot) => (
@@ -220,7 +198,7 @@ export function Sidebar({ workspaceId }: { workspaceId: string }) {
                         >
                           <div className="flex items-center text-sm text-muted-foreground">
                             <Hash className="h-4 w-4 mr-2 inline-block" />
-                            {!isCollapsed && <span className="truncate">{channel.name}</span>}
+                            <span className="truncate">{channel.name}</span>
                           </div>
                         </div>
                       )}
