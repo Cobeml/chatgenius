@@ -13,7 +13,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { workspaceId, name } = await request.json();
+    const { workspaceId, name, isPrivate } = await request.json();
 
     // Verify workspace ownership
     const workspace = await dynamoDb.get({
@@ -29,10 +29,11 @@ export async function POST(request: Request) {
       workspaceId,
       id: uuidv4(),
       name: name.trim(),
-      isPrivate: false,
+      isPrivate: isPrivate || false,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      position: Date.now() // Add position field for ordering
+      position: Date.now(), // Add position field for ordering
+      members: isPrivate ? [session.user.email] : undefined // Add creator as first member for private channels
     };
 
     await dynamoDb.put({
@@ -64,8 +65,12 @@ export async function GET(request: Request) {
     const result = await dynamoDb.query({
       TableName: process.env.AWS_DYNAMODB_CHANNELS_TABLE!,
       KeyConditionExpression: 'workspaceId = :workspaceId',
+      FilterExpression: 'attribute_not_exists(isPrivate) OR isPrivate = :false OR (isPrivate = :true AND contains(members, :userEmail))',
       ExpressionAttributeValues: {
-        ':workspaceId': workspaceId
+        ':workspaceId': workspaceId,
+        ':false': false,
+        ':true': true,
+        ':userEmail': session.user.email
       }
     }).promise();
 

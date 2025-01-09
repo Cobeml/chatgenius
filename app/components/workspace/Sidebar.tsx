@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { ScrollArea } from "@/app/components/ui/scroll-area";
-import { Hash, Plus, Settings } from "lucide-react";
+import { Hash, Plus, Settings, Lock, MoreVertical } from "lucide-react";
 import { SettingsModal } from "@/app/components/workspace/SettingsModal";
+import { ChannelSettingsModal } from "@/app/components/workspace/ChannelSettingsModal";
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/app/components/ui/dialog";
 import { useSession } from "next-auth/react";
@@ -49,8 +50,11 @@ export function Sidebar({ workspaceId }: { workspaceId: string }) {
   const [workspace, setWorkspace] = useState<WorkspaceData | null>(null);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isNewChannelModalOpen, setIsNewChannelModalOpen] = useState(false);
+  const [isChannelSettingsModalOpen, setIsChannelSettingsModalOpen] = useState(false);
+  const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null);
   const [newChannelName, setNewChannelName] = useState('');
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [isPrivateChannel, setIsPrivateChannel] = useState(false);
 
   const isAdmin = workspace?.userRole === 'owner' || workspace?.userRole === 'admin';
 
@@ -89,7 +93,8 @@ export function Sidebar({ workspaceId }: { workspaceId: string }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           workspaceId,
-          name: newChannelName
+          name: newChannelName,
+          isPrivate: isPrivateChannel
         })
       });
 
@@ -98,6 +103,7 @@ export function Sidebar({ workspaceId }: { workspaceId: string }) {
       await fetchChannels();
       setIsNewChannelModalOpen(false);
       setNewChannelName('');
+      setIsPrivateChannel(false);
     } catch (error) {
       console.error('Failed to create channel:', error);
     }
@@ -192,13 +198,33 @@ export function Sidebar({ workspaceId }: { workspaceId: string }) {
                             provided.draggableProps.style
                           )}
                           onClick={() => handleChannelSelect(channel.id)}
-                          className={`cursor-pointer hover:bg-accent/50 ${
-                            selectedChannelId === channel.id ? 'bg-accent' : ''
+                          className={`cursor-pointer hover:bg-accent/50 group ${
+                            selectedChannelId === channel.id ? 'bg-accent text-accent-foreground' : ''
                           }`}
                         >
-                          <div className="flex items-center text-sm text-muted-foreground">
-                            <Hash className="h-4 w-4 mr-2 inline-block" />
-                            <span className="truncate">{channel.name}</span>
+                          <div className="flex items-center justify-between text-sm text-muted-foreground">
+                            <div className="flex items-center">
+                              {channel.isPrivate ? (
+                                <Lock className="h-4 w-4 mr-2 inline-block" />
+                              ) : (
+                                <Hash className="h-4 w-4 mr-2 inline-block" />
+                              )}
+                              <span className={`truncate ${selectedChannelId === channel.id ? 'text-accent-foreground font-medium' : ''}`}>
+                                {channel.name}
+                              </span>
+                            </div>
+                            {isAdmin && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedChannel(channel);
+                                  setIsChannelSettingsModalOpen(true);
+                                }}
+                                className="opacity-0 group-hover:opacity-100 transition-opacity text-foreground hover:text-accent-foreground"
+                              >
+                                <MoreVertical className="h-4 w-4" />
+                              </button>
+                            )}
                           </div>
                         </div>
                       )}
@@ -229,6 +255,23 @@ export function Sidebar({ workspaceId }: { workspaceId: string }) {
                 placeholder="e.g. general"
               />
             </div>
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="private-channel"
+                checked={isPrivateChannel}
+                onChange={(e) => setIsPrivateChannel(e.target.checked)}
+                className="checkbox"
+              />
+              <label htmlFor="private-channel" className="text-sm font-medium">
+                Make channel private
+              </label>
+            </div>
+            {isPrivateChannel && (
+              <p className="text-sm text-muted-foreground">
+                Private channels are only visible to invited members
+              </p>
+            )}
             <div className="flex justify-end gap-2">
               <button className="btn" onClick={() => setIsNewChannelModalOpen(false)}>
                 Cancel
@@ -268,6 +311,21 @@ export function Sidebar({ workspaceId }: { workspaceId: string }) {
         onClose={() => setIsInviteModalOpen(false)}
         workspaceId={workspaceId}
       />
+
+      {/* Channel Settings Modal */}
+      {selectedChannel && (
+        <ChannelSettingsModal
+          isOpen={isChannelSettingsModalOpen}
+          onClose={() => {
+            setIsChannelSettingsModalOpen(false);
+            setSelectedChannel(null);
+          }}
+          workspaceId={workspaceId}
+          channelId={selectedChannel.id}
+          channelName={selectedChannel.name}
+          isPrivate={selectedChannel.isPrivate}
+        />
+      )}
     </div>
   );
 } 

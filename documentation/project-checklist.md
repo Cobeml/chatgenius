@@ -23,8 +23,8 @@
 - [x] List channels in workspace
 - [x] Channel ordering with drag-and-drop
 - [x] Channel navigation
-- [ ] Private channels
-- [ ] Channel settings
+- [x] Private channels
+- [x] Channel settings
 
 ### Basic Messaging
 - [x] Send text messages

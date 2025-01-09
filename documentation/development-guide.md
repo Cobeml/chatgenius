@@ -212,3 +212,51 @@ npm run test:e2e
    - Browser DevTools
    - Next.js Debug Mode
    - API Route Handlers 
+
+## UI Guidelines
+
+### Dark Mode Considerations
+
+- Use `text-foreground` for icons and text to ensure visibility in both light and dark modes
+- Use `hover:bg-accent` instead of specific colors like `hover:bg-gray-100` for hover states
+- For destructive actions (delete, exit, etc.), use `text-destructive`
+- Avoid hardcoding light-specific colors that might be invisible on dark backgrounds
+- Test all UI elements in both light and dark modes before deployment
+
+### Feature Accessibility
+
+- Important features should be accessible from multiple logical locations
+  - Example: Channel settings accessible from both header and sidebar
+- Use consistent icons and naming across different access points
+- Consider user workflow when placing feature access points
+- Maintain visual hierarchy to avoid interface clutter
+
+### Icon Usage
+
+- Always provide hover states for interactive icons
+- Consider adding tooltips for icon-only buttons
+- Use consistent icon sizes within each context
+- Ensure sufficient contrast in both light and dark modes
+- Use opacity transitions for hover states (opacity-0 group-hover:opacity-100)
+
+### UI Consistency Patterns
+
+#### Member Lists
+- Use consistent styling for all member management interfaces
+- Include member avatars with first letter capitalized
+- Apply hover states with `hover:bg-primary-hover/10`
+- Add border with `border-primary-hover/20`
+- Include smooth transitions with `transition-all`
+- Implement scrollable containers for long lists
+- Use consistent spacing and padding
+
+#### Form Controls
+- Use consistent input and button styles
+- Apply proper focus states with ring styling
+- Maintain consistent heights for adjacent elements
+- Use appropriate disabled states
+- Follow spacing patterns across forms
+
+### Component Guidelines
+
+[Rest of the existing content...] 
