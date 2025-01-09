@@ -19,11 +19,6 @@ interface WorkspaceInvite {
   inviterId: string;
 }
 
-interface WorkspaceMember {
-  userId: string;
-  role: 'owner' | 'member';
-}
-
 interface UnifiedWorkspace extends Workspace {
   lastVisited?: string; // ISO date string
 }
@@ -46,15 +41,15 @@ export default function Home() {
           
           // Combine and sort workspaces
           const allWorkspaces = [
-            ...data.owned.map((w: any) => ({
+            ...data.owned.map((w: Workspace) => ({
               ...w,
               lastVisited: localStorage.getItem(`workspace-${w.id}-lastVisit`) || '1970-01-01'
             })),
-            ...data.administered.map((w: any) => ({
+            ...data.administered.map((w: Workspace) => ({
               ...w,
               lastVisited: localStorage.getItem(`workspace-${w.id}-lastVisit`) || '1970-01-01'
             })),
-            ...data.member.map((w: any) => ({
+            ...data.member.map((w: Workspace) => ({
               ...w,
               lastVisited: localStorage.getItem(`workspace-${w.id}-lastVisit`) || '1970-01-01'
             }))

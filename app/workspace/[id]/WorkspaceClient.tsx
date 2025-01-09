@@ -36,8 +36,6 @@ export default function WorkspaceClient({ workspaceId, userRole }: WorkspaceClie
   const [currentChannel, setCurrentChannel] = useState<Channel | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const isAdmin = userRole === 'owner' || userRole === 'admin';
-
   const fetchMessages = useCallback(async () => {
     if (!selectedChannelId) return;
     

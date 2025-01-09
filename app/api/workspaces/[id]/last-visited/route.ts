@@ -5,6 +5,14 @@ import { DynamoDB } from 'aws-sdk';
 
 const dynamoDb = new DynamoDB.DocumentClient();
 
+// Create an interface for the member type
+interface WorkspaceMember {
+  userId: string;
+  lastVisited?: string;
+  role?: string;
+  // Add other member properties as needed
+}
+
 export async function POST(
   request: Request,
   { params }: { params: { id: string } }
@@ -31,7 +39,7 @@ export async function POST(
     }
 
     // Update the lastVisited timestamp for the current user
-    const updatedMembers = workspace.Item.members.map((member: any) => {
+    const updatedMembers = workspace.Item.members.map((member: WorkspaceMember) => {
       if (member.userId === userEmail) {
         return { ...member, lastVisited: now };
       }

@@ -1,11 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/app/components/ui/dialog";
+
+interface WorkspaceMember {
+  email: string;
+  role: 'owner' | 'admin' | 'member';
+}
 
 interface WorkspaceSettings {
   name: string;
-  members: string[];
+  members: WorkspaceMember[];
 }
 
 interface SettingsModalProps {
@@ -20,6 +25,45 @@ export function SettingsModal({ isOpen, onClose, workspaceId, initialSettings }:
     name: '',
     members: []
   });
+
+  const [members, setMembers] = useState<WorkspaceMember[]>([]);
+
+  useEffect(() => {
+    const fetchMembers = async () => {
+      try {
+        const response = await fetch(`/api/workspaces/${workspaceId}/members`);
+        if (!response.ok) throw new Error('Failed to fetch members');
+        const data = await response.json();
+        setMembers(data);
+      } catch (error) {
+        console.error('Error fetching members:', error);
+      }
+    };
+
+    if (isOpen) {
+      fetchMembers();
+    }
+  }, [workspaceId, isOpen]);
+
+  useEffect(() => {
+    const fetchWorkspaceDetails = async () => {
+      try {
+        const response = await fetch(`/api/workspaces/${workspaceId}`);
+        if (!response.ok) throw new Error('Failed to fetch workspace details');
+        const data = await response.json();
+        setSettings(prevSettings => ({
+          ...prevSettings,
+          name: data.name
+        }));
+      } catch (error) {
+        console.error('Error fetching workspace details:', error);
+      }
+    };
+
+    if (isOpen) {
+      fetchWorkspaceDetails();
+    }
+  }, [workspaceId, isOpen]);
 
   const handleSave = async () => {
     try {
@@ -58,19 +102,24 @@ export function SettingsModal({ isOpen, onClose, workspaceId, initialSettings }:
 
           <div className="space-y-2">
             <label className="text-sm font-medium">Members</label>
-            <div className="border rounded-md p-2">
-              {settings.members.map((member, index) => (
-                <div key={index} className="flex items-center justify-between py-1">
-                  <span>{member}</span>
-                  <button
-                    onClick={() => setSettings({
-                      ...settings,
-                      members: settings.members.filter((_, i) => i !== index)
-                    })}
-                    className="text-red-500 hover:text-red-700"
-                  >
-                    Remove
-                  </button>
+            <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2">
+              {members.map((member) => (
+                <div
+                  key={member.email}
+                  className="group hover:bg-primary-hover/10 p-3 rounded-lg border border-primary-hover/20 
+                           transition-all duration-200 flex justify-between items-center"
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 rounded-md bg-primary-hover/20 flex items-center justify-center">
+                      <span className="text-sm font-medium">
+                        {member.email[0].toUpperCase()}
+                      </span>
+                    </div>
+                    <span className="text-sm">{member.email}</span>
+                  </div>
+                  <span className="text-sm text-text/60 group-hover:text-text/80 transition-colors">
+                    {member.role}
+                  </span>
                 </div>
               ))}
             </div>

@@ -21,38 +21,44 @@ export async function POST(request: Request) {
 
   try {
     const { workspaceId } = await request.json();
-    console.log('Processing invite acceptance:', { workspaceId, userEmail: session.user.email });
-
+    
     // Get the workspace
     const { Item: workspace } = await dynamodb.get({
       TableName: WORKSPACES_TABLE,
       Key: { id: workspaceId }
     }).promise();
 
-    console.log('Found workspace:', workspace);
-
     if (!workspace) {
       return NextResponse.json({ error: 'Workspace not found' }, { status: 404 });
     }
 
-    // Check if user is invited
-    if (!workspace.invites?.includes(session.user.email)) {
-      console.log('User not found in invites:', { 
-        invites: workspace.invites, 
-        userEmail: session.user.email 
-      });
-      return NextResponse.json({ error: 'No invite found' }, { status: 403 });
-    }
-
     const userEmail = session.user.email;
 
-    // Add check for existing member
-    if (workspace.members?.some((member: DynamoDBSchemas['Workspaces']['members'][0]) => 
-      member.userId === userEmail
-    )) {
+    // Check if user is already a member
+    const isAlreadyMember = workspace.members?.some(
+      (member: { userId: string }) => member.userId === userEmail
+    );
+
+    if (isAlreadyMember) {
+      // Remove from invites if they're somehow still there
+      const updateParams = {
+        TableName: WORKSPACES_TABLE,
+        Key: { id: workspaceId },
+        UpdateExpression: 'SET invites = :updated_invites',
+        ExpressionAttributeValues: {
+          ':updated_invites': workspace.invites.filter((email: string) => email !== userEmail),
+        }
+      };
+      await dynamodb.update(updateParams).promise();
       return NextResponse.json({ error: 'Already a member' }, { status: 400 });
     }
 
+    // Check if user is invited
+    if (!workspace.invites?.includes(userEmail)) {
+      return NextResponse.json({ error: 'No invite found' }, { status: 403 });
+    }
+
+    // Update workspace: add member and remove from invites atomically
     const updateParams = {
       TableName: WORKSPACES_TABLE,
       Key: { id: workspaceId },
@@ -73,10 +79,7 @@ export async function POST(request: Request) {
       ConditionExpression: 'attribute_exists(id)'
     };
 
-    console.log('Updating workspace with params:', updateParams);
-    const updateResult = await dynamodb.update(updateParams).promise();
-    console.log('Update result:', updateResult);
-
+    await dynamodb.update(updateParams).promise();
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error accepting invite:', error);

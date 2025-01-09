@@ -107,14 +107,7 @@ export async function PUT(request: Request) {
 
   try {
     const { workspaceId, emails } = await request.json();
-    const inviterId = session.user?.email;
-
-    if (!workspaceId || !emails || !Array.isArray(emails)) {
-      return NextResponse.json({ error: 'Invalid request data' }, { status: 400 });
-    }
-
-    console.log('Debug:', { workspaceId, emails, inviterId }); // Add debugging
-
+    
     const workspace = await dynamoDb.get({
       TableName: process.env.AWS_DYNAMODB_WORKSPACES_TABLE!,
       Key: { id: workspaceId }
@@ -124,26 +117,39 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'Workspace not found' }, { status: 404 });
     }
 
-    if (workspace.Item.ownerId !== inviterId) {
-      return NextResponse.json({ error: 'Unauthorized to invite users' }, { status: 403 });
+    // Check if any email is already a member
+    const existingMembers = workspace.Item.members?.map(
+      (m: { userId: string }) => m.userId
+    ) || [];
+    
+    const alreadyMembers = emails.filter((email: string) => existingMembers.includes(email));
+    if (alreadyMembers.length > 0) {
+      return NextResponse.json({ 
+        error: 'Some users are already members',
+        users: alreadyMembers 
+      }, { status: 400 });
     }
 
-    // Ensure emails array is not empty
-    if (emails.length === 0) {
-      return NextResponse.json({ error: 'No email addresses provided' }, { status: 400 });
+    // Filter out any existing invites to prevent duplicates
+    const existingInvites = workspace.Item.invites || [];
+    const newInvites = emails.filter((email: string) => !existingInvites.includes(email));
+
+    if (newInvites.length === 0) {
+      return NextResponse.json({ error: 'All users already invited' }, { status: 400 });
     }
 
+    // Update with only new invites
     await dynamoDb.update({
       TableName: process.env.AWS_DYNAMODB_WORKSPACES_TABLE!,
       Key: { id: workspaceId },
       UpdateExpression: 'SET invites = list_append(if_not_exists(invites, :empty_list), :emails)',
       ExpressionAttributeValues: {
-        ':emails': emails,
+        ':emails': newInvites,
         ':empty_list': []
       }
     }).promise();
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, addedInvites: newInvites });
   } catch (error) {
     console.error('Error details:', error);
     return NextResponse.json(

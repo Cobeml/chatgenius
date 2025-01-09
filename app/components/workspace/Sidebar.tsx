@@ -22,6 +22,7 @@ interface WorkspaceData {
   name: string;
   members: string[];
   ownerId: string;
+  userRole?: 'owner' | 'admin' | 'member';
 }
 
 const getItemStyle = (isDragging: boolean, draggableStyle: CSSProperties | undefined): CSSProperties => ({
@@ -51,15 +52,20 @@ export function Sidebar({ workspaceId }: { workspaceId: string }) {
   const [newChannelName, setNewChannelName] = useState('');
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
 
+  const isAdmin = workspace?.userRole === 'owner' || workspace?.userRole === 'admin';
+
   const fetchWorkspaceData = useCallback(async () => {
     try {
       const res = await fetch(`/api/workspaces/${workspaceId}`);
       const data = await res.json();
-      setWorkspace(data);
+      setWorkspace({
+        ...data,
+        userRole: data.userRole || (data.ownerId === session?.user?.email ? 'owner' : 'member')
+      });
     } catch (error) {
       console.error('Failed to fetch workspace:', error);
     }
-  }, [workspaceId]);
+  }, [workspaceId, session?.user?.email]);
 
   const fetchChannels = useCallback(async () => {
     try {
@@ -144,11 +150,11 @@ export function Sidebar({ workspaceId }: { workspaceId: string }) {
       {/* Workspace Header */}
       <div className="h-14 border-b flex items-center justify-between px-4">
         <h2 className="font-semibold truncate">{workspace?.name || 'Loading...'}</h2>
-        <button 
-          onClick={() => setIsSettingsModalOpen(true)}
-        >
-          <Settings className="h-4 w-4" />
-        </button>
+        {isAdmin && (
+          <button onClick={() => setIsSettingsModalOpen(true)}>
+            <Settings className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
       {/* Channels */}
@@ -156,10 +162,8 @@ export function Sidebar({ workspaceId }: { workspaceId: string }) {
         <div className="py-2">
           <div className="flex items-center justify-between px-2 mb-2">
             <h3 className="text-sm font-semibold text-muted-foreground">Channels</h3>
-            {workspace?.ownerId === session?.user?.email && (
-              <button 
-                onClick={() => setIsNewChannelModalOpen(true)}
-              >
+            {isAdmin && (
+              <button onClick={() => setIsNewChannelModalOpen(true)}>
                 <Plus className="h-3 w-3" />
               </button>
             )}
@@ -242,14 +246,17 @@ export function Sidebar({ workspaceId }: { workspaceId: string }) {
         isOpen={isSettingsModalOpen}
         onClose={() => setIsSettingsModalOpen(false)}
         workspaceId={workspaceId}
-        initialSettings={workspace || undefined}
+        initialSettings={workspace ? {
+          name: workspace.name,
+          members: [] // We'll fetch members separately in the modal
+        } : undefined}
       />
 
-      {workspace?.ownerId === session?.user?.email && (
+      {isAdmin && (
         <div className="p-2 border-t">
           <button
             onClick={() => setIsInviteModalOpen(true)}
-            className="w-full btn bg-primary text-primary-foreground hover:bg-primary/90"
+            className="w-full btn text-sm py-1.5"
           >
             Invite Users
           </button>
