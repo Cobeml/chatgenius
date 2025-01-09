@@ -13,34 +13,54 @@ export async function GET() {
   }
 
   try {
-    const userId = session.user?.email || '';
-    if (!userId) {
+    const userEmail = session.user?.email;
+    if (!userEmail) {
       return NextResponse.json({ error: 'User email not found' }, { status: 401 });
     }
 
     const params = {
       TableName: process.env.AWS_DYNAMODB_WORKSPACES_TABLE!,
-      FilterExpression: 'ownerId = :userId OR contains(members, :userId)',
-      ExpressionAttributeValues: {
-        ':userId': userId,
-      },
+      // Remove the FilterExpression as we'll filter in memory after getting results
     };
 
     const result = await dynamoDb.scan(params).promise();
     const workspaces = result.Items || [];
 
-    // Transform the data to include roles
-    const formattedWorkspaces = workspaces.map(workspace => ({
-      id: workspace.id,
-      name: workspace.name,
-      role: workspace.ownerId === userId ? 'owner' : 'member'
-    }));
+    // Separate workspaces based on user's role
+    const categorizedWorkspaces = workspaces.reduce((acc, workspace) => {
+      // Check if user is a member
+      const memberInfo = workspace.members?.find(
+        (member: { userId: string; role: string }) => member.userId === userEmail
+      );
 
-    return NextResponse.json(formattedWorkspaces);
+      if (memberInfo) {
+        const workspaceData = {
+          id: workspace.id,
+          name: workspace.name,
+          role: memberInfo.role
+        };
+
+        if (memberInfo.role === 'owner') {
+          acc.owned.push(workspaceData);
+        } else if (memberInfo.role === 'admin') {
+          acc.administered.push(workspaceData);
+        } else {
+          acc.member.push(workspaceData);
+        }
+      }
+
+      return acc;
+    }, {
+      owned: [],
+      administered: [],
+      member: []
+    });
+
+    return NextResponse.json(categorizedWorkspaces);
   } catch (error) {
     console.error('Error details:', error);
     return NextResponse.json(
-      { error: 'Internal Server Error', details: (error as Error).message }, 
+      { error: 'Internal Server Error', details: (error as Error).message },
       { status: 500 }
     );
   }

@@ -8,6 +8,7 @@ import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/app/components/ui/dialog";
 import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from 'next/navigation';
+import { InviteModal } from "@/app/components/workspace/InviteModal";
 import type { CSSProperties } from 'react';
 
 interface Channel {
@@ -48,6 +49,7 @@ export function Sidebar({ workspaceId }: { workspaceId: string }) {
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isNewChannelModalOpen, setIsNewChannelModalOpen] = useState(false);
   const [newChannelName, setNewChannelName] = useState('');
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
 
   const fetchWorkspaceData = useCallback(async () => {
     try {
@@ -241,6 +243,23 @@ export function Sidebar({ workspaceId }: { workspaceId: string }) {
         onClose={() => setIsSettingsModalOpen(false)}
         workspaceId={workspaceId}
         initialSettings={workspace || undefined}
+      />
+
+      {workspace?.ownerId === session?.user?.email && (
+        <div className="p-2 border-t">
+          <button
+            onClick={() => setIsInviteModalOpen(true)}
+            className="w-full btn bg-primary text-primary-foreground hover:bg-primary/90"
+          >
+            Invite Users
+          </button>
+        </div>
+      )}
+
+      <InviteModal
+        isOpen={isInviteModalOpen}
+        onClose={() => setIsInviteModalOpen(false)}
+        workspaceId={workspaceId}
       />
     </div>
   );

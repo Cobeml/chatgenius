@@ -12,6 +12,7 @@ export interface DynamoDBSchemas {
     members: {
       userId: string;
       role: 'owner' | 'admin' | 'member';
+      lastVisited?: string;
     }[];
     invites: string[];
     createdAt: string;

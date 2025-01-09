@@ -5,7 +5,7 @@ import { ScrollArea } from "@/app/components/ui/scroll-area";
 import { MessageInput } from "@/app/components/workspace/MessageInput";
 import { InviteModal } from "@/app/components/workspace/InviteModal";
 import { useSearchParams } from 'next/navigation';
-import { Download, ChevronLeft } from 'lucide-react';
+import { Download, LogOut } from 'lucide-react';
 import Link from 'next/link';
 
 interface Channel {
@@ -84,6 +84,24 @@ export default function WorkspaceClient({ workspaceId, userRole }: WorkspaceClie
     }
   }, [selectedChannelId, fetchMessages, fetchChannelDetails]);
 
+  useEffect(() => {
+    const updateLastVisited = async () => {
+      try {
+        await fetch(`/api/workspaces/${workspaceId}/last-visited`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+      } catch (error) {
+        console.error('Failed to update last visited:', error);
+      }
+    };
+
+    // Update last visited when component mounts
+    updateLastVisited();
+  }, [workspaceId]);
+
   const handleFileDownload = (fileUrl: string) => {
     const downloadUrl = `/api/download?file=${encodeURIComponent(fileUrl)}`;
     window.open(downloadUrl, '_blank');
@@ -101,23 +119,16 @@ export default function WorkspaceClient({ workspaceId, userRole }: WorkspaceClie
     <div className="h-full flex flex-col overflow-hidden">
       <div className="h-12 min-h-[3rem] border-b flex items-center justify-between px-4">
         <div className="flex items-center gap-3">
-          <Link 
-            href="/" 
-            className="hover:bg-gray-100 p-1 rounded-md transition-colors"
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </Link>
           <h1 className="font-semibold">{currentChannel?.name || 'Select a channel'}</h1>
         </div>
         <div className="flex gap-2">
-          {isAdmin && (
-            <button
-              onClick={() => setIsInviteModalOpen(true)}
-              className="btn"
-            >
-              Invite Users
-            </button>
-          )}
+          <Link 
+            href="/" 
+            className="hover:bg-gray-100 p-2 rounded-md transition-colors flex items-center gap-2 text-red-500"
+          >
+            <LogOut className="h-5 w-5" />
+            <span className="text-sm">Exit</span>
+          </Link>
         </div>
       </div>
 
