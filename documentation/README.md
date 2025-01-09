@@ -4,37 +4,52 @@ ChatGenius is a real-time chat application built with Next.js and AWS, designed 
 
 ## Current Status
 
-The project has completed Phase 1 and parts of Phase 2 of development:
+The project has completed Phase 1 (Core Infrastructure) and is working on Phase 2:
 
-### Completed Features
-- ✅ Authentication with Email/Password
-- ✅ Workspace Management
+### Completed Features ✅
+- Authentication
+  - Email/Password login with NextAuth.js
+  - JWT session management
+  - Protected API routes
+- Workspace Management
   - Create/Join workspaces
   - Invite system
-  - Member management
-- ✅ Channel Management
-  - Create channels
-  - Drag-and-drop channel reordering
-- ✅ Basic Messaging
-  - Text messages
+  - Member roles (owner, admin, member)
+  - Workspace settings
+  - Last visited tracking
+- Channel Management
+  - Create/manage channels
+  - Private channels
+  - Channel settings
+  - Drag-and-drop channel ordering
+- Basic Messaging
+  - Text messages with formatting
   - File attachments
   - Message history
-- ✅ File Sharing
-  - S3-based file storage
-  - File download support
+  - Message editing/deletion
+- File Handling
+  - S3 integration
+  - File uploads/downloads
+  - File type validation
+- Infrastructure
+  - DynamoDB tables
+  - S3 bucket configuration
+  - IAM policies
+  - CORS configuration
 
-### In Progress
-- 🟡 Real-time Features
-  - WebSocket integration
-  - Presence system
-  - Direct messages
+### In Progress 🟡
+- WebSocket Integration
+- Presence System
+- Direct Messages
 
-### Planned Features
+### Planned Features 📋
 - Thread support
+- Search functionality
 - Rich text editing
 - Message reactions
-- Search functionality
-- User presence & status
+- Dark/light theme
+- Mobile responsiveness
+- Performance optimizations
 
 ## Documentation Structure
 
@@ -42,4 +57,6 @@ The project has completed Phase 1 and parts of Phase 2 of development:
 - [API Reference](./api-reference.md) - API endpoints and usage
 - [Database Schema](./database-schema.md) - DynamoDB data models
 - [Development Guide](./development-guide.md) - Setup and development workflow
-- [AWS Infrastructure](./aws-infrastructure.md) - AWS services and configuration 
+- [AWS Infrastructure](./aws-infrastructure.md) - AWS services and configuration
+- [Project Checklist](./project-checklist.md) - Development phases and progress
+- [Workflow](./workflow.md) - Development workflows and processes 

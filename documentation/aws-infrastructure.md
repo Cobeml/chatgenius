@@ -4,6 +4,19 @@
 
 ChatGenius uses various AWS services to provide a scalable and reliable infrastructure. This document details the AWS services used and their configurations.
 
+## Current Status
+
+### Implemented Services ✅
+- DynamoDB Tables (Users, Workspaces, Channels, Messages)
+- S3 File Storage
+- IAM Policies and Roles
+- CORS Configuration
+
+### In Progress 🟡
+- API Gateway WebSocket API
+- Real-time Features Integration
+- CloudFront CDN
+
 ## Services Used
 
 ### DynamoDB
@@ -201,17 +214,22 @@ Identity and Access Management for security.
 
 ## Future Enhancements
 
-1. **Real-time Features**
-   - API Gateway WebSocket API
-   - Lambda integration
-   - Connection management
+1. **Real-time Features** 🟡
+   - API Gateway WebSocket API (in progress)
+   - Lambda integration (planned)
+   - Connection management (planned)
 
-2. **Search Capability**
-   - OpenSearch Service
-   - Lambda indexing
-   - Search API integration
+2. **Performance Optimization** 📋
+   - CloudFront CDN integration
+   - Lambda@Edge for routing
+   - Enhanced caching strategy
 
-3. **Media Processing**
+3. **Media Processing** 📋
    - Lambda image resizing
    - MediaConvert integration
-   - Thumbnail generation 
+   - Thumbnail generation
+
+4. **Monitoring Enhancements** 📋
+   - Enhanced CloudWatch metrics
+   - Custom dashboards
+   - Automated alerting 

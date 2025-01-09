@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { signIn } from 'next-auth/react';
+import ReCAPTCHA from "react-google-recaptcha";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -9,10 +10,41 @@ interface AuthModalProps {
   mode: 'signin' | 'signup';
 }
 
+const MIN_PASSWORD_LENGTH = 8;
+const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+
 export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [passwordStrength, setPasswordStrength] = useState<string>('');
+  const [attemptCount, setAttemptCount] = useState(0);
+  const recaptchaRef = useRef<ReCAPTCHA>(null);
+  const lastAttemptRef = useRef<number>(0);
+
+  useEffect(() => {
+    if (mode === 'signup') {
+      validatePassword(password);
+    }
+  }, [password, mode]);
+
+  const validatePassword = (pass: string) => {
+    if (pass.length === 0) {
+      setPasswordStrength('');
+      return false;
+    }
+    if (pass.length < MIN_PASSWORD_LENGTH) {
+      setPasswordStrength('Password must be at least 8 characters long');
+      return false;
+    }
+    if (!PASSWORD_REGEX.test(pass)) {
+      setPasswordStrength('Password must contain uppercase, lowercase, number, and special character');
+      return false;
+    }
+    setPasswordStrength('Password strength: Strong');
+    return true;
+  };
 
   const handleBackdropClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) {
@@ -20,49 +52,105 @@ export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
     }
   };
 
+  const checkRateLimit = (): boolean => {
+    const now = Date.now();
+    const timeSinceLastAttempt = now - lastAttemptRef.current;
+    
+    // If more than 5 attempts, require 30 second wait
+    if (attemptCount >= 5 && timeSinceLastAttempt < 30000) {
+      setError(`Too many attempts. Please wait ${Math.ceil((30000 - timeSinceLastAttempt) / 1000)} seconds`);
+      return false;
+    }
+    
+    // If less than 2 seconds between attempts
+    if (timeSinceLastAttempt < 2000) {
+      setError('Please wait a moment before trying again');
+      return false;
+    }
+
+    return true;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
-    if (mode === 'signup') {
-      try {
+    if (!checkRateLimit()) {
+      return;
+    }
+
+    if (mode === 'signup' && !validatePassword(password)) {
+      setError('Please meet all password requirements');
+      return;
+    }
+
+    // Get reCAPTCHA token
+    const token = recaptchaRef.current?.getValue();
+    if (!token) {
+      setError('Please complete the CAPTCHA verification');
+      return;
+    }
+
+    setIsLoading(true);
+    lastAttemptRef.current = Date.now();
+    setAttemptCount(prev => prev + 1);
+
+    try {
+      if (mode === 'signup') {
         const res = await fetch('/api/auth/signup', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password }),
+          body: JSON.stringify({ 
+            email, 
+            password,
+            recaptchaToken: token 
+          }),
         });
 
         if (res.ok) {
           // Sign in after successful signup
-          await signIn('credentials', {
+          const signInResult = await signIn('credentials', {
             email,
             password,
             callbackUrl: '/',
+            redirect: false,
           });
+
+          if (signInResult?.error) {
+            setError('Failed to sign in after signup');
+          } else {
+            onClose();
+          }
         } else {
           const data = await res.json();
           setError(data.error || 'Something went wrong');
         }
-      } catch {
-        setError('Failed to sign up');
-      }
-    } else {
-      // Handle sign in
-      try {
+      } else {
+        // Handle sign in
         const result = await signIn('credentials', {
           email,
           password,
+          recaptchaToken: token,
           redirect: false,
         });
 
         if (result?.error) {
-          setError('Invalid credentials');
+          if (result.error === 'CredentialsSignin') {
+            setError('Invalid email or password');
+          } else {
+            setError(result.error);
+          }
         } else {
+          setAttemptCount(0); // Reset on successful login
           onClose();
         }
-      } catch {
-        setError('Failed to sign in');
       }
+    } catch (err) {
+      setError('An unexpected error occurred');
+      console.error('Auth error:', err);
+    } finally {
+      setIsLoading(false);
+      recaptchaRef.current?.reset();
     }
   };
 
@@ -90,22 +178,48 @@ export default function AuthModal({ isOpen, onClose, mode }: AuthModalProps) {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
+            disabled={isLoading}
           />
-          <input
-            type="password"
-            placeholder="Password"
-            className="input"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-          <button type="submit" className="btn">
-            {mode === 'signin' ? 'Sign In' : 'Sign Up'}
+          <div className="space-y-1">
+            <input
+              type="password"
+              placeholder="Password"
+              className="input w-full"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              disabled={isLoading}
+              minLength={MIN_PASSWORD_LENGTH}
+            />
+            {mode === 'signup' && passwordStrength && (
+              <div className={`text-sm ${
+                passwordStrength.includes('Strong') 
+                  ? 'text-green-500' 
+                  : 'text-yellow-500'
+              }`}>
+                {passwordStrength}
+              </div>
+            )}
+          </div>
+          <div className="flex justify-center my-2">
+            <ReCAPTCHA
+              ref={recaptchaRef}
+              sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY!}
+              theme="dark"
+            />
+          </div>
+          <button 
+            type="submit" 
+            className="btn disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={isLoading}
+          >
+            {isLoading ? 'Please wait...' : mode === 'signin' ? 'Sign In' : 'Sign Up'}
           </button>
         </form>
         <button 
           onClick={onClose}
           className="absolute top-4 right-4 text-text hover:text-text-hover"
+          disabled={isLoading}
         >
           ✕
         </button>

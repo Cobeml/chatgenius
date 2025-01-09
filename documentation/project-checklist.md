@@ -2,14 +2,13 @@
 
 ## Phase 1: Core Infrastructure ✅
 
-### Authentication
+### Authentication ✅
 - [x] Email/Password authentication with NextAuth.js
 - [x] JWT-based session management
 - [x] User registration and login
 - [x] Protected API routes
-- [ ] Additional auth providers (Google, GitHub)
 
-### Workspace Management
+### Workspace Management ✅
 - [x] Create workspaces
 - [x] Join workspaces via invites
 - [x] Workspace settings management
@@ -18,7 +17,7 @@
 - [x] Member management
 - [x] Invite system
 
-### Channel Management
+### Channel Management ✅
 - [x] Create channels
 - [x] List channels in workspace
 - [x] Channel ordering with drag-and-drop
@@ -26,22 +25,20 @@
 - [x] Private channels
 - [x] Channel settings
 
-### Basic Messaging
+### Basic Messaging ✅
 - [x] Send text messages
 - [x] Message history
 - [x] File attachments
 - [x] Message timestamps
 - [x] Basic message formatting
-- [ ] Message editing
-- [ ] Message deletion
+- [x] Message editing
+- [x] Message deletion
 
-### File Handling
+### File Handling ✅
 - [x] S3 integration
 - [x] File uploads
 - [x] File downloads
 - [x] File type validation
-- [ ] File previews
-- [ ] Image thumbnails
 
 ## Phase 2: Real-time Features 🟡
 
