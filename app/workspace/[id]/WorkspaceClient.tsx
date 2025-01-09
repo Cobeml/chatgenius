@@ -25,10 +25,9 @@ interface Message {
 
 interface WorkspaceClientProps {
   workspaceId: string;
-  userRole: 'owner' | 'admin' | 'member';
 }
 
-export default function WorkspaceClient({ workspaceId, userRole }: WorkspaceClientProps) {
+export default function WorkspaceClient({ workspaceId }: WorkspaceClientProps) {
   const searchParams = useSearchParams();
   const selectedChannelId = searchParams.get('channel');
   const [messages, setMessages] = useState<Message[]>([]);

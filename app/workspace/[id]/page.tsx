@@ -59,8 +59,7 @@ export default async function WorkspacePage({ params }: PageProps) {
   return (
     <Suspense fallback={<div>Loading...</div>}>
       <WorkspaceClient 
-        workspaceId={resolvedParams.id} 
-        userRole={workspaceAccess.userRole}
+        workspaceId={resolvedParams.id}
       />
     </Suspense>
   );
