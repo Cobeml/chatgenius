@@ -15,7 +15,7 @@ interface WorkspaceMember {
 
 export async function POST(
   request: Request,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
 
@@ -24,7 +24,7 @@ export async function POST(
   }
 
   try {
-    const workspaceId = context.params.id;
+    const { id: workspaceId } = await context.params;
     const userEmail = session.user.email;
     const now = new Date().toISOString();
 
