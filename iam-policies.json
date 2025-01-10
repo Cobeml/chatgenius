@@ -1,40 +1,62 @@
 {
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Effect": "Allow",
-            "Action": [
-                "s3:PutObject",
-                "s3:GetObject",
-                "s3:DeleteObject",
-                "s3:ListBucket"
-            ],
-            "Resource": [
-                "arn:aws:s3:::${AWS_S3_BUCKET_NAME}",
-                "arn:aws:s3:::${AWS_S3_BUCKET_NAME}/*"
-            ]
-        },
-        {
-            "Effect": "Allow",
-            "Action": [
-                "dynamodb:PutItem",
-                "dynamodb:GetItem",
-                "dynamodb:UpdateItem",
-                "dynamodb:DeleteItem",
-                "dynamodb:Query",
-                "dynamodb:Scan"
-            ],
-            "Resource": [
-                "arn:aws:dynamodb:*:*:table/chatgenius-*"
-            ]
-        },
-        {
-            "Effect": "Allow",
-            "Action": [
-                "execute-api:ManageConnections",
-                "execute-api:Invoke"
-            ],
-            "Resource": "arn:aws:execute-api:*:*:*"
-        }
-    ]
-} 
+	"Version": "2012-10-17",
+	"Statement": [
+		{
+			"Effect": "Allow",
+			"Action": [
+				"s3:PutObject",
+				"s3:GetObject",
+				"s3:DeleteObject",
+				"s3:ListBucket"
+			],
+			"Resource": [
+				"arn:aws:s3:::chatgenius-files-cobe",
+				"arn:aws:s3:::chatgenius-files-cobe/*"
+			]
+		},
+		{
+			"Effect": "Allow",
+			"Action": [
+				"dynamodb:GetItem",
+				"dynamodb:PutItem",
+				"dynamodb:UpdateItem",
+				"dynamodb:DeleteItem",
+				"dynamodb:Query",
+				"dynamodb:Scan"
+			],
+			"Resource": "arn:aws:dynamodb:us-east-2:664418981946:table/chatgenius-*"
+		},
+		{
+			"Effect": "Allow",
+			"Action": [
+				"dynamodb:CreateTable",
+				"dynamodb:DeleteTable",
+				"dynamodb:DescribeTable",
+				"dynamodb:UpdateTable"
+			],
+			"Resource": "arn:aws:dynamodb:us-east-2:664418981946:table/*"
+		},
+		{
+			"Effect": "Allow",
+			"Action": [
+				"execute-api:ManageConnections",
+				"execute-api:Invoke"
+			],
+			"Resource": "arn:aws:execute-api:us-east-2:664418981946:*"
+		},
+		{
+			"Effect": "Allow",
+			"Action": [
+				"apigateway:GET",
+				"apigateway:POST",
+				"apigateway:PUT",
+				"apigateway:DELETE",
+				"apigateway:PATCH"
+			],
+			"Resource": [
+				"arn:aws:apigateway:us-east-2::/apis",
+				"arn:aws:apigateway:us-east-2::/apis/*"
+			]
+		}
+	]
+}

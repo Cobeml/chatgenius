@@ -233,3 +233,36 @@ Identity and Access Management for security.
    - Enhanced CloudWatch metrics
    - Custom dashboards
    - Automated alerting 
+
+## API Gateway WebSocket API
+
+The WebSocket API is used for real-time features like messaging, presence, and typing indicators.
+
+### Endpoints
+
+- `$connect` - Handles new WebSocket connections
+- `$disconnect` - Handles WebSocket disconnections
+- `message` - Handles real-time message delivery
+- `presence` - Handles user presence updates
+- `typing` - Handles typing indicators
+
+### Configuration
+
+1. Create a WebSocket API in API Gateway
+2. Set up routes for each endpoint
+3. Configure IAM roles with necessary permissions
+4. Deploy to production stage
+5. Update environment variables with API Gateway endpoint
+
+## DynamoDB Tables
+
+### Connections Table
+
+- Primary Key: `connectionId` (String)
+- GSI: `workspaceIndex` on `workspaceId`
+- Attributes:
+  - `connectionId` - WebSocket connection ID
+  - `timestamp` - Connection timestamp
+  - `status` - Connection status (connected/disconnected/online/offline/away)
+  - `workspaceId` - Associated workspace ID
+  - `userId` - Associated user ID 
