@@ -44,7 +44,6 @@ export default function WorkspaceClient({ workspaceId }: WorkspaceClientProps) {
   const [editingMessage, setEditingMessage] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
   const [typingUsers, setTypingUsers] = useState<{ [key: string]: string }>({});
-  const [onlineUsers, setOnlineUsers] = useState<{ [key: string]: string }>({});
   const { isConnected, lastMessage, sendMessage, updatePresence, updateTyping } = useWebSocket(workspaceId);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
@@ -223,12 +222,7 @@ export default function WorkspaceClient({ workspaceId }: WorkspaceClientProps) {
         }
         break;
       case 'presence':
-        if (lastMessage.connectionId && lastMessage.status) {
-          setOnlineUsers(prev => ({
-            ...prev,
-            [lastMessage.connectionId!]: lastMessage.status!
-          }));
-        }
+        // Skip presence handling for now
         break;
       case 'typing':
         if (lastMessage.connectionId && lastMessage.channelId === selectedChannelId) {

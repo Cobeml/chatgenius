@@ -23,7 +23,6 @@
 # misc
 .DS_Store
 *.pem
-badWebhookRoute.ts
 
 # debug
 npm-debug.log*
