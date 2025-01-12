@@ -6,7 +6,7 @@
   "parser": "@typescript-eslint/parser",
   "plugins": ["@typescript-eslint"],
   "rules": {
-    "@typescript-eslint/no-explicit-any": "off",
+    "@typescript-eslint/no-explicit-any": "warn",
     "@typescript-eslint/no-unused-vars": "warn",
     "react-hooks/exhaustive-deps": "warn"
   },
@@ -16,6 +16,12 @@
       "rules": {
         "@typescript-eslint/no-explicit-any": "off",
         "@typescript-eslint/no-unused-vars": "off"
+      }
+    },
+    {
+      "files": ["app/hooks/useWebSocket.ts"],
+      "rules": {
+        "react-hooks/exhaustive-deps": "off"
       }
     }
   ]

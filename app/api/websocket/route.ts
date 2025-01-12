@@ -1,6 +1,4 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/auth';
 import { DynamoDB } from 'aws-sdk';
 import { ApiGatewayManagementApi } from 'aws-sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
@@ -19,8 +17,13 @@ interface WebSocketEvent {
   body?: string;
 }
 
+// Add AWS error interface
+interface AWSError extends Error {
+  statusCode?: number;
+}
+
 // Helper function to send message to a connection
-async function sendMessageToConnection(connectionId: string, data: any) {
+async function sendMessageToConnection(connectionId: string, data: Record<string, unknown>) {
   // Extract the endpoint from the WebSocket URL
   const wsEndpoint = process.env.NEXT_PUBLIC_WEBSOCKET_URL!.replace('wss://', '').split('/')[0];
   const endpoint = `https://${wsEndpoint}/prod`;

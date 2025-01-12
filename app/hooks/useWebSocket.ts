@@ -106,15 +106,17 @@ export function useWebSocket(workspaceId: string) {
           });
         }
       };
+
+      return ws;
     }
 
-    setupWebSocket();
+    const ws = setupWebSocket();
 
     // Cleanup on unmount or when session/workspaceId changes
     return () => {
-      if (socket?.readyState === WebSocket.OPEN) {
+      if (ws.readyState === WebSocket.OPEN) {
         console.log('Closing WebSocket connection on cleanup');
-        socket.close();
+        ws.close();
       }
     };
   }, [workspaceId, session?.user?.email, status]);
