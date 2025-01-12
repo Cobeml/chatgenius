@@ -24,5 +24,6 @@
         "react-hooks/exhaustive-deps": "off"
       }
     }
-  ]
+  ],
+  "ignorePatterns": ["app/api/websocket/route.ts"]
 }

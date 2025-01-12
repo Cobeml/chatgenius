@@ -17,8 +17,7 @@ interface WebSocketEvent {
   body?: string;
 }
 
-// Add AWS error interface
-interface AWSError extends Error {
+interface WebSocketError extends Error {
   statusCode?: number;
 }
 
@@ -51,7 +50,7 @@ async function sendMessageToConnection(connectionId: string, data: Record<string
       error: error instanceof Error ? error.message : error,
       endpoint
     });
-    if ((error as any).statusCode === 410) {
+    if ((error as WebSocketError).statusCode === 410) {
       console.log('Connection is stale, removing:', connectionId);
       // Connection is stale, remove it
       await dynamoDb.delete({
@@ -393,11 +392,11 @@ export async function message(event: WebSocketEvent) {
           connectionId: connection.connectionId,
           error: error instanceof Error ? error.message : error,
           errorType: error instanceof Error ? error.constructor.name : typeof error,
-          statusCode: (error as any).statusCode
+          statusCode: (error as WebSocketError).statusCode
         });
 
         // If connection is gone (410), mark it as disconnected
-        if ((error as any).statusCode === 410) {
+        if ((error as WebSocketError).statusCode === 410) {
           try {
             console.log('Marking stale connection as disconnected:', connection.connectionId);
             
@@ -426,7 +425,7 @@ export async function message(event: WebSocketEvent) {
           success: false, 
           connectionId: connection.connectionId,
           error: error instanceof Error ? error.message : 'Unknown error',
-          statusCode: (error as any).statusCode
+          statusCode: (error as WebSocketError).statusCode
         };
       }
     });
