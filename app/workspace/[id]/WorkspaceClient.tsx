@@ -23,6 +23,7 @@ interface Message {
   timestamp: string;
   userId: string;
   content: string;
+  messageId?: string;
   attachments?: string[];
   edited?: boolean;
 }
@@ -194,17 +195,18 @@ export default function WorkspaceClient({ workspaceId }: WorkspaceClientProps) {
             const newMessage = {
               channelId: lastMessage.channelId!,
               timestamp: lastMessage.timestamp || new Date().toISOString(),
-              userId: lastMessage.connectionId || session?.user?.email || 'unknown',
+              userId: lastMessage.userId || session?.user?.email || 'unknown',
               content: lastMessage.content!,
               attachments: lastMessage.attachments
             };
 
-            // Check if message already exists
+            // Check if message already exists using messageId
             const messageExists = prev.some(m => 
-              m.content === newMessage.content && 
-              m.userId === newMessage.userId &&
-              // Messages within 1 second are considered duplicates
-              Math.abs(new Date(m.timestamp).getTime() - new Date(newMessage.timestamp).getTime()) < 1000
+              (lastMessage.messageId && m.messageId === lastMessage.messageId) || // Check messageId first
+              (m.content === newMessage.content && 
+               m.userId === newMessage.userId &&
+               // Messages within 1 second are considered duplicates
+               Math.abs(new Date(m.timestamp).getTime() - new Date(newMessage.timestamp).getTime()) < 1000)
             );
             
             if (messageExists) {
@@ -225,16 +227,16 @@ export default function WorkspaceClient({ workspaceId }: WorkspaceClientProps) {
         // Skip presence handling for now
         break;
       case 'typing':
-        if (lastMessage.connectionId && lastMessage.channelId === selectedChannelId) {
+        if (lastMessage.userId && lastMessage.channelId === selectedChannelId) {
           if (lastMessage.isTyping) {
             setTypingUsers(prev => ({
               ...prev,
-              [lastMessage.connectionId!]: new Date().toISOString()
+              [lastMessage.userId!]: new Date().toISOString()
             }));
           } else {
             setTypingUsers(prev => {
               const updated = { ...prev };
-              delete updated[lastMessage.connectionId!];
+              delete updated[lastMessage.userId!];
               return updated;
             });
           }
@@ -287,30 +289,15 @@ export default function WorkspaceClient({ workspaceId }: WorkspaceClientProps) {
 
     try {
       // Send via WebSocket for real-time delivery
+      // The server will handle storing in DynamoDB
       sendMessage(selectedChannelId, content, attachments);
-
-      // Also store in DynamoDB for persistence
-      const response = await fetch('/api/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          channelId: selectedChannelId,
-          content,
-          workspaceId,
-          attachments
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to send message');
-      }
 
       // Clear typing indicator
       handleTyping(false);
     } catch (error) {
       console.error('Error sending message:', error);
     }
-  }, [selectedChannelId, session?.user?.email, sendMessage, workspaceId, handleTyping]);
+  }, [selectedChannelId, session?.user?.email, sendMessage, handleTyping]);
 
   // Function to scroll to bottom
   const scrollToBottom = useCallback(() => {

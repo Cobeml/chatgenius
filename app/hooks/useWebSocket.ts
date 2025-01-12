@@ -5,7 +5,8 @@ interface WebSocketMessage {
   type: 'message' | 'presence' | 'typing';
   channelId?: string;
   content?: string;
-  connectionId?: string;
+  userId?: string;
+  messageId?: string;
   status?: string;
   isTyping?: boolean;
   timestamp?: string;
