@@ -49,27 +49,33 @@
 - [x] Reconnection handling
 
 ### Thread Support 🟡
-- [ ] Thread UI Components
-  - [ ] Thread sidebar component
-  - [ ] Thread message component
-  - [ ] Thread reply input
-  - [ ] Thread preview in main channel
+- [x] Thread UI Components
+  - [x] Thread sidebar component
+  - [x] Thread message component
+  - [x] Thread reply input
+  - [x] Thread preview in main channel
+  - [x] Thread view mode
+  - [x] Thread indicators
 - [ ] Thread Backend Implementation
-  - [ ] Thread creation API
-  - [ ] Thread reply API
+  - [x] Thread creation API
+  - [x] Thread reply API
   - [ ] Thread deletion API
-  - [ ] Thread participant tracking
-  - [ ] Real-time thread updates via WebSocket
+  - [x] Thread participant tracking
+  - [x] Real-time thread updates via WebSocket
+    - [x] WebSocket message types for threads
+    - [x] Thread message handler
+    - [x] Thread count tracking
+    - [x] Real-time thread broadcasts
 - [ ] Thread Features
-  - [ ] Reply count tracking
+  - [x] Reply count tracking
   - [ ] Thread notifications
   - [ ] Thread search
-  - [ ] Thread participant list
+  - [x] Thread participant list
   - [ ] Mark thread as resolved
   - [ ] Thread sharing
 - [ ] Thread Performance
   - [ ] Pagination for thread replies
-  - [ ] Optimistic UI updates
+  - [x] Optimistic UI updates
   - [ ] Thread caching
 
 ### Presence System

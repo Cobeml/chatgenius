@@ -2,15 +2,17 @@ import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 
 interface WebSocketMessage {
-  type: 'message' | 'presence' | 'typing';
+  type: 'message' | 'presence' | 'typing' | 'thread_message';
   channelId?: string;
   content?: string;
   userId?: string;
   messageId?: string;
+  parentMessageId?: string;
   status?: string;
   isTyping?: boolean;
   timestamp?: string;
   attachments?: string[];
+  threadCount?: number;
 }
 
 export function useWebSocket(workspaceId: string) {
@@ -123,18 +125,19 @@ export function useWebSocket(workspaceId: string) {
   }, [workspaceId, session?.user?.email, status]);
 
   // Send a message
-  const sendMessage = useCallback((channelId: string, content: string, attachments?: string[]) => {
+  const sendMessage = useCallback((channelId: string, content: string, attachments?: string[], parentMessageId?: string) => {
     if (!socket || socket.readyState !== WebSocket.OPEN) {
       console.error('Cannot send message: WebSocket not connected');
       return;
     }
 
     const message = {
-      action: 'message',
+      action: parentMessageId ? 'thread_message' : 'message',
       channelId,
       content,
       workspaceId,
-      attachments
+      attachments,
+      parentMessageId
     };
     
     console.log('Sending WebSocket message:', message);

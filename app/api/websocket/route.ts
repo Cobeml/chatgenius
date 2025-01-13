@@ -565,6 +565,106 @@ const handlers = {
       console.error('typing error:', error);
       return { statusCode: 500, body: 'Failed to broadcast typing status' };
     }
+  },
+
+  // thread_message handler
+  async thread_message(event: WebSocketEvent): Promise<APIGatewayProxyResult> {
+    const connectionId = event.requestContext.connectionId;
+    const body = event.body ? JSON.parse(event.body) : {};
+    const { parentMessageId, content, workspaceId, attachments } = body;
+
+    console.log('Received thread message event:', {
+      connectionId,
+      parentMessageId,
+      content,
+      workspaceId,
+      attachments
+    });
+
+    try {
+      // Get the connection record to get the userId
+      const connectionRecord = await dynamoDb.get({
+        TableName: CONNECTIONS_TABLE!,
+        Key: { connectionId }
+      }).promise();
+
+      if (!connectionRecord.Item) {
+        return { statusCode: 400, body: 'Connection record not found' };
+      }
+
+      const userId = connectionRecord.Item.userId;
+      const timestamp = new Date().toISOString();
+
+      // Store thread message in DynamoDB
+      const threadMessageItem = {
+        parentMessageId,
+        timestamp,
+        content,
+        userId,
+        attachments
+      };
+
+      await dynamoDb.put({
+        TableName: process.env.AWS_DYNAMODB_THREADS_TABLE!,
+        Item: threadMessageItem
+      }).promise();
+
+      // Update thread count in parent message
+      await dynamoDb.update({
+        TableName: process.env.AWS_DYNAMODB_MESSAGES_TABLE!,
+        Key: { messageId: parentMessageId },
+        UpdateExpression: 'ADD threadCount :inc',
+        ExpressionAttributeValues: {
+          ':inc': 1
+        }
+      }).promise();
+
+      // Get all active connections in the workspace
+      const connections = await dynamoDb.query({
+        TableName: CONNECTIONS_TABLE!,
+        IndexName: 'workspaceIndex',
+        KeyConditionExpression: 'workspaceId = :workspaceId',
+        FilterExpression: '#status IN (:status1, :status2)',
+        ExpressionAttributeNames: {
+          '#status': 'status'
+        },
+        ExpressionAttributeValues: {
+          ':workspaceId': workspaceId,
+          ':status1': 'connected',
+          ':status2': 'online'
+        }
+      }).promise();
+
+      // Broadcast to all connections
+      const broadcastMessage = {
+        type: 'thread_message',
+        parentMessageId,
+        content,
+        userId,
+        timestamp,
+        attachments,
+        messageId: `${parentMessageId}:${timestamp}`
+      };
+
+      const broadcastPromises = connections.Items?.map(connection =>
+        sendMessageToConnection(connection.connectionId, broadcastMessage)
+      );
+
+      if (broadcastPromises) {
+        await Promise.all(broadcastPromises);
+      }
+
+      return { 
+        statusCode: 200, 
+        body: JSON.stringify({
+          message: 'Thread message sent',
+          messageId: `${parentMessageId}:${timestamp}`
+        })
+      };
+    } catch (error) {
+      console.error('Thread message handler error:', error);
+      return { statusCode: 500, body: 'Failed to send thread message' };
+    }
   }
 };
 
@@ -637,6 +737,9 @@ export async function POST(request: Request) {
         break;
       case 'message':
         result = await handlers.message(event);
+        break;
+      case 'thread_message':
+        result = await handlers.thread_message(event);
         break;
       case 'presence':
         result = await handlers.presence(event);

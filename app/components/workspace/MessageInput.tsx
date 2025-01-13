@@ -8,9 +8,10 @@ interface MessageInputProps {
   channelId: string;
   onMessageSent: (content: string, attachments?: string[]) => void | Promise<void>;
   onTyping?: (isTyping: boolean) => void;
+  placeholder?: string;
 }
 
-export function MessageInput({ channelId, onMessageSent, onTyping }: MessageInputProps) {
+export function MessageInput({ channelId, onMessageSent, onTyping, placeholder = "Type a message..." }: MessageInputProps) {
   const [content, setContent] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [pendingAttachment, setPendingAttachment] = useState<{ name: string; url: string } | null>(null);
@@ -129,7 +130,7 @@ export function MessageInput({ channelId, onMessageSent, onTyping }: MessageInpu
               handleTyping();
             }}
             onKeyDown={handleKeyPress}
-            placeholder={pendingAttachment ? "Add a message..." : "Type a message..."}
+            placeholder={placeholder}
             className="w-full min-h-[60px] bg-white text-black p-2 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-hover"
           />
         </div>

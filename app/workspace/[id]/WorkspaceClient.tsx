@@ -5,7 +5,7 @@ import { ScrollArea } from "@/app/components/ui/scroll-area";
 import { MessageInput } from "@/app/components/workspace/MessageInput";
 import { InviteModal } from "@/app/components/workspace/InviteModal";
 import { useSearchParams } from 'next/navigation';
-import { Download, LogOut, Settings, Hash, Lock, X } from 'lucide-react';
+import { Download, LogOut, Settings, Hash, Lock, X, MessageSquare, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { ChannelSettingsModal } from "@/app/components/workspace/ChannelSettingsModal";
 import { useSession } from "next-auth/react";
@@ -26,6 +26,8 @@ interface Message {
   messageId?: string;
   attachments?: string[];
   edited?: boolean;
+  threadCount?: number;
+  parentMessageId?: string;
 }
 
 interface WorkspaceClientProps {
@@ -48,6 +50,8 @@ export default function WorkspaceClient({ workspaceId }: WorkspaceClientProps) {
   const { isConnected, lastMessage, sendMessage, updatePresence, updateTyping } = useWebSocket(workspaceId);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
+  const [activeThread, setActiveThread] = useState<Message | null>(null);
+  const [threadMessages, setThreadMessages] = useState<Message[]>([]);
 
   const isAdmin = workspace?.userRole === 'owner' || workspace?.userRole === 'admin';
 
@@ -328,6 +332,45 @@ export default function WorkspaceClient({ workspaceId }: WorkspaceClientProps) {
     }
   }, [messages, shouldAutoScroll, scrollToBottom]);
 
+  // Handle thread creation/reply
+  const handleThreadReply = useCallback(async (parentMessage: Message, content: string, attachments?: string[]) => {
+    if (!selectedChannelId || !session?.user?.email) return;
+
+    try {
+      // Send via WebSocket for real-time delivery
+      sendMessage(selectedChannelId, content, attachments, parentMessage.messageId || parentMessage.timestamp);
+
+      // Clear typing indicator
+      handleTyping(false);
+    } catch (error) {
+      console.error('Error sending thread reply:', error);
+    }
+  }, [selectedChannelId, session?.user?.email, sendMessage, handleTyping]);
+
+  // Handle thread view mode
+  const handleViewThread = useCallback(async (message: Message) => {
+    setActiveThread(message);
+    
+    try {
+      // Fetch thread messages
+      const response = await fetch(`/api/messages/${message.messageId || message.timestamp}/thread`);
+      if (!response.ok) throw new Error('Failed to fetch thread messages');
+      const data = await response.json();
+      
+      setThreadMessages(data.sort((a: Message, b: Message) => 
+        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+      ));
+    } catch (error) {
+      console.error('Error fetching thread messages:', error);
+    }
+  }, []);
+
+  // Exit thread view
+  const handleExitThread = () => {
+    setActiveThread(null);
+    setThreadMessages([]);
+  };
+
   if (isLoading) {
     return <div>Loading...</div>;
   }
@@ -336,14 +379,24 @@ export default function WorkspaceClient({ workspaceId }: WorkspaceClientProps) {
     <div className="h-full flex flex-col overflow-hidden">
       <div className="h-12 min-h-[3rem] border-b flex items-center justify-between px-4">
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            {currentChannel?.isPrivate ? (
-              <Lock className="h-5 w-5 text-foreground" />
-            ) : (
-              <Hash className="h-5 w-5 text-foreground" />
-            )}
-            <h1 className="font-semibold">{currentChannel?.name || 'Select a channel'}</h1>
-          </div>
+          {activeThread ? (
+            <button
+              onClick={handleExitThread}
+              className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              <span>Back to {currentChannel?.name}</span>
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              {currentChannel?.isPrivate ? (
+                <Lock className="h-5 w-5 text-foreground" />
+              ) : (
+                <Hash className="h-5 w-5 text-foreground" />
+              )}
+              <h1 className="font-semibold">{currentChannel?.name || 'Select a channel'}</h1>
+            </div>
+          )}
         </div>
         <div className="flex gap-2">
           {isAdmin && currentChannel && (
@@ -371,10 +424,12 @@ export default function WorkspaceClient({ workspaceId }: WorkspaceClientProps) {
           className="p-2 space-y-1 h-full overflow-y-auto absolute inset-0"
         >
           <div className="space-y-1">
-            {messages.map((message, index) => {
+            {(activeThread ? [activeThread, ...threadMessages] : messages).map((message, index) => {
               const previousMessage = messages[index - 1];
               const showHeader = !previousMessage || previousMessage.userId !== message.userId;
               const isOwnMessage = message.userId === session?.user?.email;
+              const isThreadReply = message.parentMessageId;
+              const hasReplies = message.threadCount && message.threadCount > 0;
 
               return (
                 <div key={message.timestamp} className="flex flex-col group">
@@ -416,6 +471,24 @@ export default function WorkspaceClient({ workspaceId }: WorkspaceClientProps) {
                             {message.edited && (
                               <span className="text-[10px] text-muted-foreground">(edited)</span>
                             )}
+                            {isThreadReply && !activeThread && (
+                              <button
+                                onClick={() => handleViewThread(message)}
+                                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                              >
+                                <MessageSquare className="h-3 w-3" />
+                                <span>View thread</span>
+                              </button>
+                            )}
+                            {hasReplies && !activeThread && (
+                              <button
+                                onClick={() => handleViewThread(message)}
+                                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                              >
+                                <MessageSquare className="h-3 w-3" />
+                                <span>{message.threadCount} {message.threadCount === 1 ? 'reply' : 'replies'}</span>
+                              </button>
+                            )}
                             {message.attachments && message.attachments.length > 0 && (
                               <div className="mt-1 flex items-center gap-2">
                                 <span className="text-xs text-pink-500">
@@ -450,6 +523,14 @@ export default function WorkspaceClient({ workspaceId }: WorkspaceClientProps) {
                               </button>
                             </div>
                           )}
+                          {!activeThread && (
+                            <button
+                              onClick={() => handleViewThread(message)}
+                              className="absolute right-0 top-0 translate-x-[105%] opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-accent rounded"
+                            >
+                              <MessageSquare className="h-3 w-3" />
+                            </button>
+                          )}
                         </div>
                       )}
                     </div>
@@ -477,8 +558,11 @@ export default function WorkspaceClient({ workspaceId }: WorkspaceClientProps) {
       <div className="p-2 border-t">
         <MessageInput 
           channelId={selectedChannelId || ''}
-          onMessageSent={handleSendMessage}
+          onMessageSent={activeThread ? 
+            (content, attachments) => handleThreadReply(activeThread, content, attachments) : 
+            handleSendMessage}
           onTyping={handleTyping}
+          placeholder={activeThread ? "Reply in thread..." : "Type a message..."}
         />
       </div>
 
