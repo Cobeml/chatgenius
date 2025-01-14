@@ -618,14 +618,14 @@ export default function WorkspaceClient({ workspaceId }: WorkspaceClientProps) {
                           <span>{message.userId}</span>
                         </div>
                       )}
-                      <div className="flex items-start gap-2">
-                        <div className="flex-1">
+                      <div className="flex items-start gap-4">
+                        <div className="flex-1 min-w-0 relative group">
                           {editingMessage === message.timestamp ? (
                             <div className="flex items-end gap-2">
                               <textarea
                                 value={editContent}
                                 onChange={(e) => setEditContent(e.target.value)}
-                                className="flex-1 min-h-[60px] bg-white text-black p-2 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-hover max-w-[85%]"
+                                className="w-full min-h-[60px] bg-white text-black p-2 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-hover"
                                 autoFocus
                               />
                               <div className="flex gap-1">
@@ -647,30 +647,32 @@ export default function WorkspaceClient({ workspaceId }: WorkspaceClientProps) {
                               </div>
                             </div>
                           ) : (
-                            <div className="bg-primary/10 border border-primary/30 rounded-lg px-3 py-1.5 text-sm text-foreground inline-block max-w-[85%] relative group">
-                              <div className="flex flex-col gap-1">
-                                <span className={message.deleted ? "italic text-muted-foreground" : ""}>
-                                  {message.content}
-                                  {message.edited && !message.deleted && (
-                                    <span className="text-[10px] text-muted-foreground ml-1">(edited)</span>
+                            <div className="flex items-center gap-2">
+                              <div className={`bg-primary/10 border border-primary/30 rounded-lg px-3 py-1.5 text-sm text-foreground break-words ${activeThread ? 'max-w-[90%]' : 'max-w-[95%]'}`}>
+                                <div className="flex flex-col gap-1">
+                                  <span className={message.deleted ? "italic text-muted-foreground" : ""}>
+                                    {message.content}
+                                    {message.edited && !message.deleted && (
+                                      <span className="text-[10px] text-muted-foreground ml-1">(edited)</span>
+                                    )}
+                                  </span>
+                                  {message.attachments && message.attachments.length > 0 && !message.deleted && (
+                                    <div className="mt-1 flex items-center gap-2">
+                                      <span className="text-xs text-pink-500">
+                                        {getFileNameFromUrl(message.attachments[0])}
+                                      </span>
+                                      <button
+                                        onClick={() => handleFileDownload(message.attachments![0])}
+                                        className="flex items-center gap-1 text-xs text-pink-700 hover:text-pink-500"
+                                      >
+                                        <Download className="h-3 w-3" />
+                                        Download
+                                      </button>
+                                    </div>
                                   )}
-                                </span>
-                                {message.attachments && message.attachments.length > 0 && !message.deleted && (
-                                  <div className="mt-1 flex items-center gap-2">
-                                    <span className="text-xs text-pink-500">
-                                      {getFileNameFromUrl(message.attachments[0])}
-                                    </span>
-                                    <button
-                                      onClick={() => handleFileDownload(message.attachments![0])}
-                                      className="flex items-center gap-1 text-xs text-pink-700 hover:text-pink-500"
-                                    >
-                                      <Download className="h-3 w-3" />
-                                      Download
-                                    </button>
-                                  </div>
-                                )}
+                                </div>
                               </div>
-                              <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-[105%] opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 bg-background/80 backdrop-blur-sm rounded-md p-0.5">
+                              <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 bg-background/80 backdrop-blur-sm rounded-md p-0.5">
                                 <button
                                   onClick={() => handleViewThread(message)}
                                   className="p-1 hover:bg-accent rounded"
@@ -703,14 +705,17 @@ export default function WorkspaceClient({ workspaceId }: WorkspaceClientProps) {
                             </div>
                           )}
                         </div>
-                        {editingMessage !== message.timestamp && (
-                          <span className="text-[10px] text-gray-400 pt-1">
-                            {new Date(message.timestamp).toLocaleTimeString([], { 
-                              hour: '2-digit', 
-                              minute: '2-digit' 
-                            })}
-                          </span>
-                        )}
+                        
+                        <div className="w-12 flex-none">
+                          {editingMessage !== message.timestamp && (
+                            <span className="text-[10px] text-gray-400">
+                              {new Date(message.timestamp).toLocaleTimeString([], { 
+                                hour: '2-digit', 
+                                minute: '2-digit' 
+                              })}
+                            </span>
+                          )}
+                        </div>
                       </div>
                       {message.threadCount && message.threadCount > 0 && (
                         <button
@@ -759,7 +764,7 @@ export default function WorkspaceClient({ workspaceId }: WorkspaceClientProps) {
         </div>
 
         {activeThread && (
-          <div className="flex-1 flex flex-col border-l">
+          <div className="flex-1 flex flex-col border-l max-w-[350px]">
             <div className="h-12 min-h-[3rem] border-b flex items-center justify-between px-4">
               <div className="flex items-center gap-2">
                 <MessageSquare className="h-5 w-5" />
@@ -774,8 +779,7 @@ export default function WorkspaceClient({ workspaceId }: WorkspaceClientProps) {
             </div>
 
             <ScrollArea className="flex-1 relative">
-              <div className="p-4 space-y-4">
-                {/* Parent Message */}
+              <div className="px-2 py-4 space-y-4">
                 <div className="flex flex-col">
                   <div className="flex items-center gap-2 text-xs text-gray-500">
                     <Avatar userId={activeThread.userId}>
@@ -784,13 +788,13 @@ export default function WorkspaceClient({ workspaceId }: WorkspaceClientProps) {
                     <span>{activeThread.userId}</span>
                   </div>
                   <div className="flex items-start gap-2">
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       {editingMessage === activeThread.timestamp ? (
                         <div className="flex items-end gap-2">
                           <textarea
                             value={editContent}
                             onChange={(e) => setEditContent(e.target.value)}
-                            className="flex-1 min-h-[60px] bg-white text-black p-2 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-hover max-w-[85%]"
+                            className="w-[240px] min-h-[60px] bg-white text-black p-2 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-hover break-words"
                             autoFocus
                           />
                           <div className="flex gap-1">
@@ -812,7 +816,7 @@ export default function WorkspaceClient({ workspaceId }: WorkspaceClientProps) {
                           </div>
                         </div>
                       ) : (
-                        <div className="bg-primary/10 border border-primary/30 rounded-lg px-3 py-1.5 text-sm text-foreground mt-1 inline-block relative group">
+                        <div className="w-[240px] bg-primary/10 border border-primary/30 rounded-lg px-3 py-1.5 text-sm text-foreground mt-1 break-words">
                           <div className="flex flex-col gap-1">
                             <span className={activeThread.deleted ? "italic text-muted-foreground" : ""}>
                               {activeThread.content}
@@ -821,27 +825,6 @@ export default function WorkspaceClient({ workspaceId }: WorkspaceClientProps) {
                               )}
                             </span>
                           </div>
-                          {activeThread.userId === session?.user?.email && (
-                            <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-[calc(100%+4px)] opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 bg-background/80 backdrop-blur-sm rounded-md p-0.5">
-                              <button
-                                onClick={() => {
-                                  setEditingMessage(activeThread.timestamp);
-                                  setEditContent(activeThread.content);
-                                }}
-                                className="p-1 hover:bg-accent rounded"
-                                title="Edit message"
-                              >
-                                <Settings className="h-3 w-3" />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteMessage(activeThread.timestamp)}
-                                className="p-1 hover:bg-destructive/10 text-destructive rounded"
-                                title="Delete message"
-                              >
-                                <X className="h-3 w-3" />
-                              </button>
-                            </div>
-                          )}
                         </div>
                       )}
                     </div>
@@ -856,7 +839,6 @@ export default function WorkspaceClient({ workspaceId }: WorkspaceClientProps) {
                   </div>
                 </div>
 
-                {/* Thread Messages */}
                 <div className="space-y-2">
                   {threadMessages.map((message, index) => {
                     const previousMessage = index === 0 ? activeThread : threadMessages[index - 1];
@@ -874,13 +856,13 @@ export default function WorkspaceClient({ workspaceId }: WorkspaceClientProps) {
                           </div>
                         )}
                         <div className="flex items-start gap-2">
-                          <div className="flex-1">
+                          <div className="flex-1 min-w-0">
                             {editingMessage === message.timestamp ? (
                               <div className="flex items-end gap-2">
                                 <textarea
                                   value={editContent}
                                   onChange={(e) => setEditContent(e.target.value)}
-                                  className="flex-1 min-h-[60px] bg-white text-black p-2 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-hover max-w-[85%]"
+                                  className="w-[240px] min-h-[60px] bg-white text-black p-2 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-hover break-words"
                                   autoFocus
                                 />
                                 <div className="flex gap-1">
@@ -902,7 +884,7 @@ export default function WorkspaceClient({ workspaceId }: WorkspaceClientProps) {
                                 </div>
                               </div>
                             ) : (
-                              <div className="bg-primary/10 border border-primary/30 rounded-lg px-3 py-1.5 text-sm text-foreground mt-1 inline-block relative group">
+                              <div className="w-[240px] bg-primary/10 border border-primary/30 rounded-lg px-3 py-1.5 text-sm text-foreground mt-1 break-words">
                                 <div className="flex flex-col gap-1">
                                   <span className={message.deleted ? "italic text-muted-foreground" : ""}>
                                     {message.content}
@@ -911,27 +893,6 @@ export default function WorkspaceClient({ workspaceId }: WorkspaceClientProps) {
                                     )}
                                   </span>
                                 </div>
-                                {isOwnMessage && (
-                                  <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-[calc(100%+4px)] opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 bg-background/80 backdrop-blur-sm rounded-md p-0.5">
-                                    <button
-                                      onClick={() => {
-                                        setEditingMessage(message.timestamp);
-                                        setEditContent(message.content);
-                                      }}
-                                      className="p-1 hover:bg-accent rounded"
-                                      title="Edit message"
-                                    >
-                                      <Settings className="h-3 w-3" />
-                                    </button>
-                                    <button
-                                      onClick={() => handleDeleteMessage(message.timestamp)}
-                                      className="p-1 hover:bg-destructive/10 text-destructive rounded"
-                                      title="Delete message"
-                                    >
-                                      <X className="h-3 w-3" />
-                                    </button>
-                                  </div>
-                                )}
                               </div>
                             )}
                           </div>
@@ -950,7 +911,7 @@ export default function WorkspaceClient({ workspaceId }: WorkspaceClientProps) {
                 </div>
               </div>
             </ScrollArea>
-
+            
             <div className="p-2 border-t">
               <MessageInput 
                 channelId={selectedChannelId || ''}
