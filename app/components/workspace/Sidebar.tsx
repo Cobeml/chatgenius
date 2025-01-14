@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { ScrollArea } from "@/app/components/ui/scroll-area";
-import { Hash, Plus, Settings, Lock, MoreVertical, MessageCircle } from "lucide-react";
+import { Hash, Plus, Settings, Lock, MoreVertical, MessageCircle, Bot } from "lucide-react";
 import { SettingsModal } from "@/app/components/workspace/SettingsModal";
 import { ChannelSettingsModal } from "@/app/components/workspace/ChannelSettingsModal";
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
@@ -13,6 +13,8 @@ import { InviteModal } from "@/app/components/workspace/InviteModal";
 import type { CSSProperties } from 'react';
 import { isDMChannel, getDMDisplayName, getDMChannelId } from "@/app/utils/dm";
 import { DMUserSelect } from "@/app/components/workspace/DMUserSelect";
+import { ChannelSummaryModal } from "./ChannelSummaryModal";
+import { WorkspaceSummary } from "./WorkspaceSummary";
 
 interface Channel {
   id: string;
@@ -37,6 +39,13 @@ interface WorkspaceData {
   members: string[];
   ownerId: string;
   userRole?: 'owner' | 'admin' | 'member';
+}
+
+interface ReadStatus {
+  [channelId: string]: {
+    lastReadMessageId: string;
+    lastReadTimestamp: string;
+  };
 }
 
 const getItemStyle = (isDragging: boolean, draggableStyle: CSSProperties | undefined): CSSProperties => ({
@@ -70,6 +79,10 @@ export function Sidebar({ workspaceId }: { workspaceId: string }) {
   const [isPrivateChannel, setIsPrivateChannel] = useState(false);
   const [dmChannels, setDMChannels] = useState<DMChannel[]>([]);
   const [workspaceMembers, setWorkspaceMembers] = useState<{ email: string }[]>([]);
+  const [selectedChannelForSummary, setSelectedChannelForSummary] = useState<Channel | null>(null);
+  const [readStatus, setReadStatus] = useState<ReadStatus>({});
+  const [latestMessages, setLatestMessages] = useState<{[channelId: string]: string}>({});
+  const [isWorkspaceSummaryOpen, setIsWorkspaceSummaryOpen] = useState(false);
 
   const isAdmin = workspace?.userRole === 'owner' || workspace?.userRole === 'admin';
 
@@ -139,6 +152,62 @@ export function Sidebar({ workspaceId }: { workspaceId: string }) {
     }
   }, [workspaceId, session?.user?.email]);
 
+  // Fetch read status for all channels
+  const fetchReadStatus = useCallback(async () => {
+    if (!session?.user?.email) return;
+
+    try {
+      const readStatusPromises = channels.map(async (channel) => {
+        const response = await fetch(`/api/messages/read?channelId=${channel.id}`);
+        if (!response.ok) throw new Error('Failed to fetch read status');
+        const data = await response.json();
+        return { channelId: channel.id, data };
+      });
+
+      const results = await Promise.all(readStatusPromises);
+      const newReadStatus: ReadStatus = {};
+      
+      results.forEach(({ channelId, data }) => {
+        const userStatus = data.find((status: any) => status.userId === session.user?.email);
+        if (userStatus) {
+          newReadStatus[channelId] = {
+            lastReadMessageId: userStatus.lastReadMessageId,
+            lastReadTimestamp: userStatus.lastReadTimestamp
+          };
+        }
+      });
+
+      setReadStatus(newReadStatus);
+    } catch (error) {
+      console.error('Error fetching read status:', error);
+    }
+  }, [channels, session?.user?.email]);
+
+  // Fetch latest message for each channel
+  const fetchLatestMessages = useCallback(async () => {
+    try {
+      const messagePromises = channels.map(async (channel) => {
+        const response = await fetch(`/api/messages/${channel.id}?limit=1`);
+        if (!response.ok) throw new Error('Failed to fetch messages');
+        const data = await response.json();
+        return { channelId: channel.id, timestamp: data[0]?.timestamp };
+      });
+
+      const results = await Promise.all(messagePromises);
+      const newLatestMessages: {[channelId: string]: string} = {};
+      
+      results.forEach(({ channelId, timestamp }) => {
+        if (timestamp) {
+          newLatestMessages[channelId] = timestamp;
+        }
+      });
+
+      setLatestMessages(newLatestMessages);
+    } catch (error) {
+      console.error('Error fetching latest messages:', error);
+    }
+  }, [channels]);
+
   useEffect(() => {
     fetchWorkspaceData();
     fetchChannels();
@@ -155,6 +224,13 @@ export function Sidebar({ workspaceId }: { workspaceId: string }) {
       fetchWorkspaceMembers();
     }
   }, [session?.user?.email, fetchWorkspaceMembers]);
+
+  useEffect(() => {
+    if (channels.length > 0 && session?.user?.email) {
+      fetchReadStatus();
+      fetchLatestMessages();
+    }
+  }, [channels, session?.user?.email, fetchReadStatus, fetchLatestMessages]);
 
   const handleCreateChannel = async () => {
     try {
@@ -221,6 +297,20 @@ export function Sidebar({ workspaceId }: { workspaceId: string }) {
     router.push(`/workspace/${workspaceId}?channel=${channelId}`);
   };
 
+  // Function to check if a channel has unread messages
+  const hasUnreadMessages = useCallback((channelId: string) => {
+    const status = readStatus[channelId];
+    const latestMessage = latestMessages[channelId];
+    
+    if (!status || !latestMessage) return false;
+    
+    return new Date(latestMessage) > new Date(status.lastReadTimestamp);
+  }, [readStatus, latestMessages]);
+
+  const handleAllySelect = () => {
+    router.push(`/workspace/${workspaceId}`);
+  };
+
   return (
     <div className="w-64 border-r bg-muted/50 flex flex-col">
       {/* Workspace Header */}
@@ -253,54 +343,76 @@ export function Sidebar({ workspaceId }: { workspaceId: string }) {
                   ref={provided.innerRef}
                   style={getListStyle(snapshot.isDraggingOver)}
                 >
-                  {channels.map((channel, index) => (
-                    <Draggable 
-                      key={channel.id} 
-                      draggableId={channel.id} 
-                      index={index}
-                    >
-                      {(provided, snapshot) => (
-                        <div
-                          ref={provided.innerRef}
-                          {...provided.draggableProps}
-                          {...provided.dragHandleProps}
-                          style={getItemStyle(
-                            snapshot.isDragging,
-                            provided.draggableProps.style
-                          )}
-                          onClick={() => handleChannelSelect(channel.id)}
-                          className={`cursor-pointer hover:bg-accent/50 group ${
-                            selectedChannelId === channel.id ? 'bg-accent text-accent-foreground' : ''
-                          }`}
-                        >
-                          <div className="flex items-center justify-between text-sm text-muted-foreground">
-                            <div className="flex items-center">
-                              {channel.isPrivate ? (
-                                <Lock className="h-4 w-4 mr-2 inline-block" />
-                              ) : (
-                                <Hash className="h-4 w-4 mr-2 inline-block" />
-                              )}
-                              <span className={`truncate ${selectedChannelId === channel.id ? 'text-accent-foreground font-medium' : ''}`}>
-                                {channel.name}
-                              </span>
-                            </div>
-                            {isAdmin && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedChannel(channel);
-                                  setIsChannelSettingsModalOpen(true);
-                                }}
-                                className="opacity-0 group-hover:opacity-100 transition-opacity text-foreground hover:text-accent-foreground"
-                              >
-                                <MoreVertical className="h-4 w-4" />
-                              </button>
+                  {channels.map((channel, index) => {
+                    const isUnread = hasUnreadMessages(channel.id);
+                    return (
+                      <Draggable 
+                        key={channel.id} 
+                        draggableId={channel.id} 
+                        index={index}
+                      >
+                        {(provided, snapshot) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.draggableProps}
+                            {...provided.dragHandleProps}
+                            style={getItemStyle(
+                              snapshot.isDragging,
+                              provided.draggableProps.style
                             )}
+                            className={`cursor-pointer hover:bg-accent/50 group ${
+                              selectedChannelId === channel.id ? 'bg-accent text-accent-foreground' : ''
+                            } ${isUnread ? 'bg-accent/10' : ''}`}
+                            onClick={() => handleChannelSelect(channel.id)}
+                          >
+                            <div className="flex items-center justify-between text-sm text-muted-foreground">
+                              <div className="flex items-center min-w-0">
+                                {channel.isPrivate ? (
+                                  <Lock className="h-4 w-4 mr-2 shrink-0" />
+                                ) : (
+                                  <Hash className="h-4 w-4 mr-2 shrink-0" />
+                                )}
+                                <span className={`break-all ${
+                                  selectedChannelId === channel.id 
+                                    ? 'text-accent-foreground font-medium' 
+                                    : isUnread 
+                                      ? 'text-foreground font-medium'
+                                      : 'text-muted-foreground'
+                                }`}>
+                                  {channel.name}
+                                </span>
+                              </div>
+                              <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 shrink-0 ml-2">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedChannelForSummary(channel);
+                                  }}
+                                  className="p-1 hover:bg-accent rounded"
+                                  title="View channel summary"
+                                >
+                                  <Bot className="h-3 w-3" />
+                                </button>
+                                {isAdmin && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedChannel(channel);
+                                      setIsChannelSettingsModalOpen(true);
+                                    }}
+                                    className="p-1 hover:bg-accent rounded"
+                                    title="Channel settings"
+                                  >
+                                    <MoreVertical className="h-3 w-3" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      )}
-                    </Draggable>
-                  ))}
+                        )}
+                      </Draggable>
+                    );
+                  })}
                   {provided.placeholder}
                 </div>
               )}
@@ -327,15 +439,15 @@ export function Sidebar({ workspaceId }: { workspaceId: string }) {
                   }`}
                 >
                   <div className="flex items-center justify-between text-sm text-muted-foreground">
-                    <div className="flex items-center">
-                      <MessageCircle className="h-4 w-4 mr-2 inline-block" />
-                      <span className={`truncate ${selectedChannelId === channelId ? 'text-accent-foreground font-medium' : ''}`}>
+                    <div className="flex items-center min-w-0">
+                      <MessageCircle className="h-4 w-4 mr-2 shrink-0" />
+                      <span className={`break-all ${selectedChannelId === channelId ? 'text-accent-foreground font-medium' : ''}`}>
                         {member.email}
                       </span>
-                      <div className={`w-2 h-2 rounded-full ml-2 ${dmChannel?.isOnline ? 'bg-green-500' : 'bg-gray-400'}`} />
+                      <div className={`w-2 h-2 rounded-full ml-2 shrink-0 ${dmChannel?.isOnline ? 'bg-green-500' : 'bg-gray-400'}`} />
                     </div>
                     {dmChannel?.unreadCount && dmChannel.unreadCount > 0 && (
-                      <span className="bg-primary text-primary-foreground text-xs px-1.5 rounded-full">
+                      <span className="bg-primary text-primary-foreground text-xs px-1.5 rounded-full shrink-0 ml-2">
                         {dmChannel.unreadCount}
                       </span>
                     )}
@@ -346,6 +458,18 @@ export function Sidebar({ workspaceId }: { workspaceId: string }) {
           </div>
         </div>
       </ScrollArea>
+
+      {/* Bottom Section */}
+      <div className="p-2 space-y-2">
+        {isAdmin && (
+          <button
+            onClick={() => setIsInviteModalOpen(true)}
+            className="w-full btn text-sm py-1.5"
+          >
+            Invite Users
+          </button>
+        )}
+      </div>
 
       {/* New Channel Modal */}
       <Dialog open={isNewChannelModalOpen} onOpenChange={setIsNewChannelModalOpen}>
@@ -404,17 +528,6 @@ export function Sidebar({ workspaceId }: { workspaceId: string }) {
         } : undefined}
       />
 
-      {isAdmin && (
-        <div className="p-2 border-t">
-          <button
-            onClick={() => setIsInviteModalOpen(true)}
-            className="w-full btn text-sm py-1.5"
-          >
-            Invite Users
-          </button>
-        </div>
-      )}
-
       <InviteModal
         isOpen={isInviteModalOpen}
         onClose={() => setIsInviteModalOpen(false)}
@@ -433,6 +546,17 @@ export function Sidebar({ workspaceId }: { workspaceId: string }) {
           channelId={selectedChannel.id}
           channelName={selectedChannel.name}
           isPrivate={selectedChannel.isPrivate}
+        />
+      )}
+
+      {/* Add ChannelSummaryModal */}
+      {selectedChannelForSummary && (
+        <ChannelSummaryModal
+          isOpen={!!selectedChannelForSummary}
+          onClose={() => setSelectedChannelForSummary(null)}
+          channelId={selectedChannelForSummary.id}
+          workspaceId={workspaceId}
+          channelName={selectedChannelForSummary.name}
         />
       )}
     </div>

@@ -13,6 +13,7 @@ import { useWebSocket } from '@/app/hooks/useWebSocket';
 import { Avatar, AvatarFallback } from '@/app/components/ui/avatar';
 import { isDMChannel, getDMDisplayName } from "@/app/utils/dm";
 import { useMessages } from '@/app/hooks/useMessages';
+import { WorkspaceSummary } from "@/app/components/workspace/WorkspaceSummary";
 
 // Add color generation function
 const getAvatarColor = (userId: string) => {
@@ -540,97 +541,268 @@ export default function WorkspaceClient({ workspaceId }: WorkspaceClientProps) {
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
-      <div className="h-12 min-h-[3rem] border-b flex items-center justify-between px-4">
-        <div className="flex items-center gap-3">
-          {isDMChannel(currentChannel?.id || '') ? (
-            <div className="flex items-center gap-2">
-              <User className="h-5 w-5 text-foreground" />
-              <h1 className="font-semibold">{currentChannel?.name || 'Select a channel'}</h1>
-              {currentChannel && (
-                <div className={`w-2 h-2 rounded-full ${currentChannel.isOnline ? 'bg-green-500' : 'bg-gray-400'}`} />
+      {selectedChannelId ? (
+        <>
+          <div className="h-12 min-h-[3rem] border-b flex items-center justify-between px-4">
+            <div className="flex items-center gap-3">
+              {isDMChannel(currentChannel?.id || '') ? (
+                <div className="flex items-center gap-2">
+                  <User className="h-5 w-5 text-foreground" />
+                  <h1 className="font-semibold">{currentChannel?.name || 'Select a channel'}</h1>
+                  {currentChannel && (
+                    <div className={`w-2 h-2 rounded-full ${currentChannel.isOnline ? 'bg-green-500' : 'bg-gray-400'}`} />
+                  )}
+                </div>
+              ) : currentChannel?.isPrivate ? (
+                <div className="flex items-center gap-2">
+                  <Lock className="h-5 w-5 text-foreground" />
+                  <h1 className="font-semibold">{currentChannel?.name || 'Select a channel'}</h1>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Hash className="h-5 w-5 text-foreground" />
+                  <h1 className="font-semibold">{currentChannel?.name || 'Select a channel'}</h1>
+                </div>
               )}
             </div>
-          ) : currentChannel?.isPrivate ? (
-            <div className="flex items-center gap-2">
-              <Lock className="h-5 w-5 text-foreground" />
-              <h1 className="font-semibold">{currentChannel?.name || 'Select a channel'}</h1>
+            <div className="flex gap-2">
+              {isAdmin && currentChannel && !isDMChannel(currentChannel.id) && (
+                <button
+                  onClick={() => setIsChannelSettingsOpen(true)}
+                  className="hover:bg-accent p-2 rounded-md transition-colors text-foreground"
+                >
+                  <Settings className="h-5 w-5" />
+                </button>
+              )}
+              <Link 
+                href="/" 
+                className="hover:bg-accent p-2 rounded-md transition-colors flex items-center gap-2 text-destructive hover:text-destructive"
+              >
+                <LogOut className="h-5 w-5" />
+                <span className="text-sm">Exit</span>
+              </Link>
             </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <Hash className="h-5 w-5 text-foreground" />
-              <h1 className="font-semibold">{currentChannel?.name || 'Select a channel'}</h1>
+          </div>
+
+          <div className="flex-1 flex">
+            <div className={`flex-1 flex flex-col ${activeThread ? 'hidden md:flex' : ''}`}>
+              <ScrollArea className="flex-1 relative">
+                <div 
+                  ref={scrollAreaRef} 
+                  onScroll={handleScroll}
+                  className="p-2 space-y-1 h-full overflow-y-auto absolute inset-0"
+                >
+                  <div className="space-y-1">
+                    {messages.map((message, index) => {
+                      const previousMessage = messages[index - 1];
+                      const showHeader = !previousMessage || previousMessage.userId !== message.userId;
+                      const isOwnMessage = message.userId === session?.user?.email;
+                      
+                      // Add unread message divider
+                      const showUnreadDivider = index > 0 && 
+                        session?.user?.email &&
+                        isMessageUnread(messages[index - 1], session.user.email) &&
+                        !isMessageUnread(message, session.user.email);
+
+                      return (
+                        <div key={message.timestamp} className="flex flex-col group message-item">
+                          {showUnreadDivider && (
+                            <div className="border-t border-red-500 my-2 relative">
+                              <span className="absolute -top-2.5 left-2 bg-background px-2 text-xs text-red-500">
+                                New Messages
+                              </span>
+                            </div>
+                          )}
+                          {showHeader && (
+                            <div className="flex items-center gap-2 text-xs text-gray-500 mt-2 mb-1">
+                              <Avatar userId={message.userId}>
+                                <AvatarFallback>{message.userId[0]?.toUpperCase()}</AvatarFallback>
+                              </Avatar>
+                              <span>{message.userId}</span>
+                            </div>
+                          )}
+                          <div className="flex items-start gap-4">
+                            <div className="flex-1 min-w-0 relative group">
+                              {editingMessage === message.timestamp ? (
+                                <div className="flex items-end gap-2">
+                                  <textarea
+                                    value={editContent}
+                                    onChange={(e) => setEditContent(e.target.value)}
+                                    className="w-full min-h-[60px] bg-white text-black p-2 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-hover"
+                                    autoFocus
+                                  />
+                                  <div className="flex gap-1">
+                                    <button
+                                      onClick={() => handleEditMessage(message.timestamp, editContent)}
+                                      className="px-2 py-1 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90"
+                                    >
+                                      Save
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        setEditingMessage(null);
+                                        setEditContent('');
+                                      }}
+                                      className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/90"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-2">
+                                  <div className={`bg-primary/10 border border-primary/30 rounded-lg px-3 py-1.5 text-sm text-foreground break-words ${activeThread ? 'max-w-[90%]' : 'max-w-[95%]'}`}>
+                                    <div className="flex flex-col gap-1">
+                                      <span className={message.deleted ? "italic text-muted-foreground" : ""}>
+                                        {message.content}
+                                        {message.edited && !message.deleted && (
+                                          <span className="text-[10px] text-muted-foreground ml-1">(edited)</span>
+                                        )}
+                                      </span>
+                                      {message.attachments && message.attachments.length > 0 && !message.deleted && (
+                                        <div className="mt-1 flex items-center gap-2">
+                                          <span className="text-xs text-pink-500">
+                                            {getFileNameFromUrl(message.attachments[0])}
+                                          </span>
+                                          <button
+                                            onClick={() => handleFileDownload(message.attachments![0])}
+                                            className="flex items-center gap-1 text-xs text-pink-700 hover:text-pink-500"
+                                          >
+                                            <Download className="h-3 w-3" />
+                                            Download
+                                          </button>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 bg-background/80 backdrop-blur-sm rounded-md p-0.5">
+                                    <button
+                                      onClick={() => handleViewThread(message)}
+                                      className="p-1 hover:bg-accent rounded"
+                                      title="Reply in thread"
+                                    >
+                                      <MessageSquare className="h-3 w-3" />
+                                    </button>
+                                    {isOwnMessage && (
+                                      <>
+                                        <button
+                                          onClick={() => {
+                                            setEditingMessage(message.timestamp);
+                                            setEditContent(message.content);
+                                          }}
+                                          className="p-1 hover:bg-accent rounded"
+                                          title="Edit message"
+                                        >
+                                          <Settings className="h-3 w-3" />
+                                        </button>
+                                        <button
+                                          onClick={() => handleDeleteMessage(message.timestamp)}
+                                          className="p-1 hover:bg-destructive/10 text-destructive rounded"
+                                          title="Delete message"
+                                        >
+                                          <X className="h-3 w-3" />
+                                        </button>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                            
+                            <div className="w-12 flex-none">
+                              {editingMessage !== message.timestamp && (
+                                <span className="text-[10px] text-gray-400">
+                                  {new Date(message.timestamp).toLocaleTimeString([], { 
+                                    hour: '2-digit', 
+                                    minute: '2-digit' 
+                                  })}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          {message.threadCount && message.threadCount > 0 && (
+                            <button
+                              onClick={() => handleViewThread(message)}
+                              className="ml-8 mt-1 text-xs text-blue-500 hover:text-blue-600 flex items-center gap-1"
+                            >
+                              <MessageSquare className="h-3 w-3" />
+                              {message.threadCount === 1 
+                                ? "1 reply" 
+                                : `${message.threadCount} replies`}
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                    {Object.keys(typingUsers).length > 0 && (
+                      <div className="text-xs text-muted-foreground italic">
+                        {Object.keys(typingUsers).length === 1
+                          ? 'Someone is typing...'
+                          : `${Object.keys(typingUsers).length} people are typing...`}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </ScrollArea>
+
+              <div className="p-2 border-t">
+                {Object.keys(typingUsers).length > 0 && (
+                  <div className="text-xs text-muted-foreground italic mb-2">
+                    {Object.keys(typingUsers).length === 1
+                      ? `${typingUsers[Object.keys(typingUsers)[0]]} is typing...`
+                      : Object.keys(typingUsers).length === 2
+                      ? `${typingUsers[Object.keys(typingUsers)[0]]} and ${typingUsers[Object.keys(typingUsers)[1]]} are typing...`
+                      : `${Object.keys(typingUsers)
+                          .slice(0, -1)
+                          .map(id => typingUsers[id])
+                          .join(', ')} and ${typingUsers[Object.keys(typingUsers)[Object.keys(typingUsers).length - 1]]} are typing...`}
+                  </div>
+                )}
+                <MessageInput 
+                  channelId={selectedChannelId || ''}
+                  onMessageSent={handleSendMessage}
+                  onTyping={handleTyping}
+                />
+              </div>
             </div>
-          )}
-        </div>
-        <div className="flex gap-2">
-          {isAdmin && currentChannel && !isDMChannel(currentChannel.id) && (
-            <button
-              onClick={() => setIsChannelSettingsOpen(true)}
-              className="hover:bg-accent p-2 rounded-md transition-colors text-foreground"
-            >
-              <Settings className="h-5 w-5" />
-            </button>
-          )}
-          <Link 
-            href="/" 
-            className="hover:bg-accent p-2 rounded-md transition-colors flex items-center gap-2 text-destructive hover:text-destructive"
-          >
-            <LogOut className="h-5 w-5" />
-            <span className="text-sm">Exit</span>
-          </Link>
-        </div>
-      </div>
 
-      <div className="flex-1 flex">
-        <div className={`flex-1 flex flex-col ${activeThread ? 'hidden md:flex' : ''}`}>
-          <ScrollArea className="flex-1 relative">
-            <div 
-              ref={scrollAreaRef} 
-              onScroll={handleScroll}
-              className="p-2 space-y-1 h-full overflow-y-auto absolute inset-0"
-            >
-              <div className="space-y-1">
-                {messages.map((message, index) => {
-                  const previousMessage = messages[index - 1];
-                  const showHeader = !previousMessage || previousMessage.userId !== message.userId;
-                  const isOwnMessage = message.userId === session?.user?.email;
-                  
-                  // Add unread message divider
-                  const showUnreadDivider = index > 0 && 
-                    session?.user?.email &&
-                    isMessageUnread(messages[index - 1], session.user.email) &&
-                    !isMessageUnread(message, session.user.email);
+            {activeThread && (
+              <div className="flex-1 flex flex-col border-l max-w-[350px]">
+                <div className="h-12 min-h-[3rem] border-b flex items-center justify-between px-4">
+                  <div className="flex items-center gap-2">
+                    <MessageSquare className="h-5 w-5" />
+                    <h2 className="font-semibold">Thread</h2>
+                  </div>
+                  <button
+                    onClick={() => setActiveThread(null)}
+                    className="hover:bg-accent p-2 rounded-md transition-colors"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
 
-                  return (
-                    <div key={message.timestamp} className="flex flex-col group message-item">
-                      {showUnreadDivider && (
-                        <div className="border-t border-red-500 my-2 relative">
-                          <span className="absolute -top-2.5 left-2 bg-background px-2 text-xs text-red-500">
-                            New Messages
-                          </span>
-                        </div>
-                      )}
-                      {showHeader && (
-                        <div className="flex items-center gap-2 text-xs text-gray-500 mt-2 mb-1">
-                          <Avatar userId={message.userId}>
-                            <AvatarFallback>{message.userId[0]?.toUpperCase()}</AvatarFallback>
-                          </Avatar>
-                          <span>{message.userId}</span>
-                        </div>
-                      )}
-                      <div className="flex items-start gap-4">
-                        <div className="flex-1 min-w-0 relative group">
-                          {editingMessage === message.timestamp ? (
+                <ScrollArea className="flex-1 relative">
+                  <div className="px-2 py-4 space-y-4">
+                    <div className="flex flex-col">
+                      <div className="flex items-center gap-2 text-xs text-gray-500">
+                        <Avatar userId={activeThread.userId}>
+                          <AvatarFallback>{activeThread.userId[0]?.toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                        <span>{activeThread.userId}</span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <div className="flex-1 min-w-0">
+                          {editingMessage === activeThread.timestamp ? (
                             <div className="flex items-end gap-2">
                               <textarea
                                 value={editContent}
                                 onChange={(e) => setEditContent(e.target.value)}
-                                className="w-full min-h-[60px] bg-white text-black p-2 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-hover"
+                                className="w-[240px] min-h-[60px] bg-white text-black p-2 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-hover break-words"
                                 autoFocus
                               />
                               <div className="flex gap-1">
                                 <button
-                                  onClick={() => handleEditMessage(message.timestamp, editContent)}
+                                  onClick={() => handleEditMessage(activeThread.timestamp, editContent)}
                                   className="px-2 py-1 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90"
                                 >
                                   Save
@@ -647,307 +819,144 @@ export default function WorkspaceClient({ workspaceId }: WorkspaceClientProps) {
                               </div>
                             </div>
                           ) : (
-                            <div className="flex items-center gap-2">
-                              <div className={`bg-primary/10 border border-primary/30 rounded-lg px-3 py-1.5 text-sm text-foreground break-words ${activeThread ? 'max-w-[90%]' : 'max-w-[95%]'}`}>
-                                <div className="flex flex-col gap-1">
-                                  <span className={message.deleted ? "italic text-muted-foreground" : ""}>
-                                    {message.content}
-                                    {message.edited && !message.deleted && (
-                                      <span className="text-[10px] text-muted-foreground ml-1">(edited)</span>
-                                    )}
-                                  </span>
-                                  {message.attachments && message.attachments.length > 0 && !message.deleted && (
-                                    <div className="mt-1 flex items-center gap-2">
-                                      <span className="text-xs text-pink-500">
-                                        {getFileNameFromUrl(message.attachments[0])}
-                                      </span>
-                                      <button
-                                        onClick={() => handleFileDownload(message.attachments![0])}
-                                        className="flex items-center gap-1 text-xs text-pink-700 hover:text-pink-500"
-                                      >
-                                        <Download className="h-3 w-3" />
-                                        Download
-                                      </button>
-                                    </div>
+                            <div className="w-[240px] bg-primary/10 border border-primary/30 rounded-lg px-3 py-1.5 text-sm text-foreground mt-1 break-words">
+                              <div className="flex flex-col gap-1">
+                                <span className={activeThread.deleted ? "italic text-muted-foreground" : ""}>
+                                  {activeThread.content}
+                                  {activeThread.edited && !activeThread.deleted && (
+                                    <span className="text-[10px] text-muted-foreground ml-1">(edited)</span>
                                   )}
-                                </div>
-                              </div>
-                              <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 bg-background/80 backdrop-blur-sm rounded-md p-0.5">
-                                <button
-                                  onClick={() => handleViewThread(message)}
-                                  className="p-1 hover:bg-accent rounded"
-                                  title="Reply in thread"
-                                >
-                                  <MessageSquare className="h-3 w-3" />
-                                </button>
-                                {isOwnMessage && (
-                                  <>
-                                    <button
-                                      onClick={() => {
-                                        setEditingMessage(message.timestamp);
-                                        setEditContent(message.content);
-                                      }}
-                                      className="p-1 hover:bg-accent rounded"
-                                      title="Edit message"
-                                    >
-                                      <Settings className="h-3 w-3" />
-                                    </button>
-                                    <button
-                                      onClick={() => handleDeleteMessage(message.timestamp)}
-                                      className="p-1 hover:bg-destructive/10 text-destructive rounded"
-                                      title="Delete message"
-                                    >
-                                      <X className="h-3 w-3" />
-                                    </button>
-                                  </>
-                                )}
+                                </span>
                               </div>
                             </div>
                           )}
                         </div>
-                        
-                        <div className="w-12 flex-none">
-                          {editingMessage !== message.timestamp && (
-                            <span className="text-[10px] text-gray-400">
-                              {new Date(message.timestamp).toLocaleTimeString([], { 
-                                hour: '2-digit', 
-                                minute: '2-digit' 
-                              })}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      {message.threadCount && message.threadCount > 0 && (
-                        <button
-                          onClick={() => handleViewThread(message)}
-                          className="ml-8 mt-1 text-xs text-blue-500 hover:text-blue-600 flex items-center gap-1"
-                        >
-                          <MessageSquare className="h-3 w-3" />
-                          {message.threadCount === 1 
-                            ? "1 reply" 
-                            : `${message.threadCount} replies`}
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
-                {Object.keys(typingUsers).length > 0 && (
-                  <div className="text-xs text-muted-foreground italic">
-                    {Object.keys(typingUsers).length === 1
-                      ? 'Someone is typing...'
-                      : `${Object.keys(typingUsers).length} people are typing...`}
-                  </div>
-                )}
-              </div>
-            </div>
-          </ScrollArea>
-
-          <div className="p-2 border-t">
-            {Object.keys(typingUsers).length > 0 && (
-              <div className="text-xs text-muted-foreground italic mb-2">
-                {Object.keys(typingUsers).length === 1
-                  ? `${typingUsers[Object.keys(typingUsers)[0]]} is typing...`
-                  : Object.keys(typingUsers).length === 2
-                  ? `${typingUsers[Object.keys(typingUsers)[0]]} and ${typingUsers[Object.keys(typingUsers)[1]]} are typing...`
-                  : `${Object.keys(typingUsers)
-                      .slice(0, -1)
-                      .map(id => typingUsers[id])
-                      .join(', ')} and ${typingUsers[Object.keys(typingUsers)[Object.keys(typingUsers).length - 1]]} are typing...`}
-              </div>
-            )}
-            <MessageInput 
-              channelId={selectedChannelId || ''}
-              onMessageSent={handleSendMessage}
-              onTyping={handleTyping}
-            />
-          </div>
-        </div>
-
-        {activeThread && (
-          <div className="flex-1 flex flex-col border-l max-w-[350px]">
-            <div className="h-12 min-h-[3rem] border-b flex items-center justify-between px-4">
-              <div className="flex items-center gap-2">
-                <MessageSquare className="h-5 w-5" />
-                <h2 className="font-semibold">Thread</h2>
-              </div>
-              <button
-                onClick={() => setActiveThread(null)}
-                className="hover:bg-accent p-2 rounded-md transition-colors"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <ScrollArea className="flex-1 relative">
-              <div className="px-2 py-4 space-y-4">
-                <div className="flex flex-col">
-                  <div className="flex items-center gap-2 text-xs text-gray-500">
-                    <Avatar userId={activeThread.userId}>
-                      <AvatarFallback>{activeThread.userId[0]?.toUpperCase()}</AvatarFallback>
-                    </Avatar>
-                    <span>{activeThread.userId}</span>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <div className="flex-1 min-w-0">
-                      {editingMessage === activeThread.timestamp ? (
-                        <div className="flex items-end gap-2">
-                          <textarea
-                            value={editContent}
-                            onChange={(e) => setEditContent(e.target.value)}
-                            className="w-[240px] min-h-[60px] bg-white text-black p-2 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-hover break-words"
-                            autoFocus
-                          />
-                          <div className="flex gap-1">
-                            <button
-                              onClick={() => handleEditMessage(activeThread.timestamp, editContent)}
-                              className="px-2 py-1 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90"
-                            >
-                              Save
-                            </button>
-                            <button
-                              onClick={() => {
-                                setEditingMessage(null);
-                                setEditContent('');
-                              }}
-                              className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/90"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="w-[240px] bg-primary/10 border border-primary/30 rounded-lg px-3 py-1.5 text-sm text-foreground mt-1 break-words">
-                          <div className="flex flex-col gap-1">
-                            <span className={activeThread.deleted ? "italic text-muted-foreground" : ""}>
-                              {activeThread.content}
-                              {activeThread.edited && !activeThread.deleted && (
-                                <span className="text-[10px] text-muted-foreground ml-1">(edited)</span>
-                              )}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    {editingMessage !== activeThread.timestamp && (
-                      <span className="text-[10px] text-gray-400 pt-1">
-                        {new Date(activeThread.timestamp).toLocaleTimeString([], { 
-                          hour: '2-digit', 
-                          minute: '2-digit' 
-                        })}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  {threadMessages.map((message, index) => {
-                    const previousMessage = index === 0 ? activeThread : threadMessages[index - 1];
-                    const showHeader = !previousMessage || previousMessage.userId !== message.userId;
-                    const isOwnMessage = message.userId === session?.user?.email;
-
-                    return (
-                      <div key={message.timestamp} className="flex flex-col">
-                        {showHeader && (
-                          <div className="flex items-center gap-2 text-xs text-gray-500">
-                            <Avatar userId={message.userId}>
-                              <AvatarFallback>{message.userId[0]?.toUpperCase()}</AvatarFallback>
-                            </Avatar>
-                            <span>{message.userId}</span>
-                          </div>
+                        {editingMessage !== activeThread.timestamp && (
+                          <span className="text-[10px] text-gray-400 pt-1">
+                            {new Date(activeThread.timestamp).toLocaleTimeString([], { 
+                              hour: '2-digit', 
+                              minute: '2-digit' 
+                            })}
+                          </span>
                         )}
-                        <div className="flex items-start gap-2">
-                          <div className="flex-1 min-w-0">
-                            {editingMessage === message.timestamp ? (
-                              <div className="flex items-end gap-2">
-                                <textarea
-                                  value={editContent}
-                                  onChange={(e) => setEditContent(e.target.value)}
-                                  className="w-[240px] min-h-[60px] bg-white text-black p-2 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-hover break-words"
-                                  autoFocus
-                                />
-                                <div className="flex gap-1">
-                                  <button
-                                    onClick={() => handleEditMessage(message.timestamp, editContent)}
-                                    className="px-2 py-1 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90"
-                                  >
-                                    Save
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      setEditingMessage(null);
-                                      setEditContent('');
-                                    }}
-                                    className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/90"
-                                  >
-                                    Cancel
-                                  </button>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="w-[240px] bg-primary/10 border border-primary/30 rounded-lg px-3 py-1.5 text-sm text-foreground mt-1 break-words">
-                                <div className="flex flex-col gap-1">
-                                  <span className={message.deleted ? "italic text-muted-foreground" : ""}>
-                                    {message.content}
-                                    {message.edited && !message.deleted && (
-                                      <span className="text-[10px] text-muted-foreground ml-1">(edited)</span>
-                                    )}
-                                  </span>
-                                </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      {threadMessages.map((message, index) => {
+                        const previousMessage = index === 0 ? activeThread : threadMessages[index - 1];
+                        const showHeader = !previousMessage || previousMessage.userId !== message.userId;
+                        const isOwnMessage = message.userId === session?.user?.email;
+
+                        return (
+                          <div key={message.timestamp} className="flex flex-col">
+                            {showHeader && (
+                              <div className="flex items-center gap-2 text-xs text-gray-500">
+                                <Avatar userId={message.userId}>
+                                  <AvatarFallback>{message.userId[0]?.toUpperCase()}</AvatarFallback>
+                                </Avatar>
+                                <span>{message.userId}</span>
                               </div>
                             )}
+                            <div className="flex items-start gap-2">
+                              <div className="flex-1 min-w-0">
+                                {editingMessage === message.timestamp ? (
+                                  <div className="flex items-end gap-2">
+                                    <textarea
+                                      value={editContent}
+                                      onChange={(e) => setEditContent(e.target.value)}
+                                      className="w-[240px] min-h-[60px] bg-white text-black p-2 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-hover break-words"
+                                      autoFocus
+                                    />
+                                    <div className="flex gap-1">
+                                      <button
+                                        onClick={() => handleEditMessage(message.timestamp, editContent)}
+                                        className="px-2 py-1 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90"
+                                      >
+                                        Save
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          setEditingMessage(null);
+                                          setEditContent('');
+                                        }}
+                                        className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/90"
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="w-[240px] bg-primary/10 border border-primary/30 rounded-lg px-3 py-1.5 text-sm text-foreground mt-1 break-words">
+                                    <div className="flex flex-col gap-1">
+                                      <span className={message.deleted ? "italic text-muted-foreground" : ""}>
+                                        {message.content}
+                                        {message.edited && !message.deleted && (
+                                          <span className="text-[10px] text-muted-foreground ml-1">(edited)</span>
+                                        )}
+                                      </span>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                              {editingMessage !== message.timestamp && (
+                                <span className="text-[10px] text-gray-400 pt-1">
+                                  {new Date(message.timestamp).toLocaleTimeString([], { 
+                                    hour: '2-digit', 
+                                    minute: '2-digit' 
+                                  })}
+                                </span>
+                              )}
+                            </div>
                           </div>
-                          {editingMessage !== message.timestamp && (
-                            <span className="text-[10px] text-gray-400 pt-1">
-                              {new Date(message.timestamp).toLocaleTimeString([], { 
-                                hour: '2-digit', 
-                                minute: '2-digit' 
-                              })}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
+                        );
+                      })}
+                    </div>
+                  </div>
+                </ScrollArea>
+                
+                <div className="p-2 border-t">
+                  <MessageInput 
+                    channelId={selectedChannelId || ''}
+                    onMessageSent={async (content, attachments) => {
+                      if (!activeThread.messageId && !activeThread.timestamp) return;
+                      
+                      try {
+                        // Send message to thread only
+                        const threadResponse = await fetch(`/api/messages/${activeThread.messageId || activeThread.timestamp}/thread`, {
+                          method: 'POST',
+                          headers: {
+                            'Content-Type': 'application/json'
+                          },
+                          body: JSON.stringify({
+                            content,
+                            userId: session?.user?.email,
+                            attachments,
+                            channelId: selectedChannelId
+                          })
+                        });
+
+                        if (!threadResponse.ok) throw new Error('Failed to send thread message');
+
+                        const newThreadMessage = await threadResponse.json();
+                        setThreadMessages(prev => [...prev, newThreadMessage]);
+                      } catch (error) {
+                        console.error('Error sending thread message:', error);
+                      }
+                    }}
+                    onTyping={handleTyping}
+                    isThreadReply={true}
+                  />
                 </div>
               </div>
-            </ScrollArea>
-            
-            <div className="p-2 border-t">
-              <MessageInput 
-                channelId={selectedChannelId || ''}
-                onMessageSent={async (content, attachments) => {
-                  if (!activeThread.messageId && !activeThread.timestamp) return;
-                  
-                  try {
-                    // Send message to thread only
-                    const threadResponse = await fetch(`/api/messages/${activeThread.messageId || activeThread.timestamp}/thread`, {
-                      method: 'POST',
-                      headers: {
-                        'Content-Type': 'application/json'
-                      },
-                      body: JSON.stringify({
-                        content,
-                        userId: session?.user?.email,
-                        attachments,
-                        channelId: selectedChannelId
-                      })
-                    });
-
-                    if (!threadResponse.ok) throw new Error('Failed to send thread message');
-
-                    const newThreadMessage = await threadResponse.json();
-                    setThreadMessages(prev => [...prev, newThreadMessage]);
-                  } catch (error) {
-                    console.error('Error sending thread message:', error);
-                  }
-                }}
-                onTyping={handleTyping}
-                isThreadReply={true}
-              />
-            </div>
+            )}
           </div>
-        )}
-      </div>
+        </>
+      ) : (
+        <div className="h-full flex items-center justify-center">
+          <p className="text-muted-foreground">Select a channel to start messaging</p>
+        </div>
+      )}
 
       <InviteModal
         isOpen={isInviteModalOpen}
