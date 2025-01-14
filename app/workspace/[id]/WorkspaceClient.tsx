@@ -12,6 +12,7 @@ import { useSession } from "next-auth/react";
 import { useWebSocket } from '@/app/hooks/useWebSocket';
 import { Avatar, AvatarFallback } from '@/app/components/ui/avatar';
 import { isDMChannel, getDMDisplayName } from "@/app/utils/dm";
+import { useMessages } from '@/app/hooks/useMessages';
 
 // Add color generation function
 const getAvatarColor = (userId: string) => {
@@ -63,6 +64,13 @@ interface WorkspaceClientProps {
   workspaceId: string;
 }
 
+interface ReadStatus {
+  [userId: string]: {
+    lastReadMessageId: string;
+    lastReadTimestamp: string;
+  };
+}
+
 export default function WorkspaceClient({ workspaceId }: WorkspaceClientProps) {
   const searchParams = useSearchParams();
   const selectedChannelId = searchParams.get('channel');
@@ -76,11 +84,13 @@ export default function WorkspaceClient({ workspaceId }: WorkspaceClientProps) {
   const [editingMessage, setEditingMessage] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
   const [typingUsers, setTypingUsers] = useState<{ [key: string]: string }>({});
+  const { messages: channelMessages, isLoading: messagesLoading } = useMessages(selectedChannelId || '');
   const { isConnected, lastMessage, sendMessage, updatePresence, updateTyping } = useWebSocket(workspaceId);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
   const [activeThread, setActiveThread] = useState<Message | null>(null);
   const [threadMessages, setThreadMessages] = useState<Message[]>([]);
+  const [readStatus, setReadStatus] = useState<Record<string, ReadStatus>>({});
 
   const isAdmin = workspace?.userRole === 'owner' || workspace?.userRole === 'admin';
 
@@ -406,8 +416,32 @@ export default function WorkspaceClient({ workspaceId }: WorkspaceClientProps) {
 
   // Scroll to bottom on initial load and channel change
   useEffect(() => {
+    if (!selectedChannelId || !channelMessages.length || !session?.user?.email) return;
+
+    // Find the first unread message
+    const userReadStatus = readStatus[selectedChannelId]?.[session.user.email];
+    if (userReadStatus) {
+      const lastReadTime = new Date(userReadStatus.lastReadTimestamp).getTime();
+      const firstUnreadIndex = channelMessages.findIndex((msg: Message) => 
+        new Date(msg.timestamp).getTime() > lastReadTime
+      );
+
+      if (firstUnreadIndex !== -1) {
+        // Scroll to the first unread message with some context
+        const scrollElement = scrollAreaRef.current;
+        if (scrollElement) {
+          const messageElements = scrollElement.getElementsByClassName('message-item');
+          if (messageElements[Math.max(0, firstUnreadIndex - 1)]) {
+            messageElements[Math.max(0, firstUnreadIndex - 1)].scrollIntoView({ behavior: 'smooth' });
+            return;
+          }
+        }
+      }
+    }
+
+    // If no unread messages or can't find the position, scroll to bottom
     scrollToBottom();
-  }, [selectedChannelId, scrollToBottom]);
+  }, [selectedChannelId, channelMessages, readStatus, session?.user?.email]);
 
   // Auto-scroll when new messages arrive if user was at bottom
   useEffect(() => {
@@ -435,6 +469,69 @@ export default function WorkspaceClient({ workspaceId }: WorkspaceClientProps) {
         console.error('Error fetching thread messages:', error);
       });
   }, []);
+
+  // Fetch read status when channel changes
+  useEffect(() => {
+    const fetchReadStatus = async () => {
+      if (!selectedChannelId) return;
+
+      try {
+        const response = await fetch(`/api/messages/read?channelId=${selectedChannelId}`);
+        if (!response.ok) throw new Error('Failed to fetch read status');
+        
+        const data = await response.json();
+        setReadStatus(prev => ({
+          ...prev,
+          [selectedChannelId]: data.reduce((acc: any, status: any) => {
+            acc[status.userId] = {
+              lastReadMessageId: status.lastReadMessageId,
+              lastReadTimestamp: status.lastReadTimestamp
+            };
+            return acc;
+          }, {})
+        }));
+      } catch (error) {
+        console.error('Error fetching read status:', error);
+      }
+    };
+
+    fetchReadStatus();
+  }, [selectedChannelId]);
+
+  // Function to check if a message is unread
+  const isMessageUnread = useCallback((message: Message, userId: string) => {
+    if (!selectedChannelId || !readStatus[selectedChannelId]) return false;
+    
+    const userStatus = readStatus[selectedChannelId][userId];
+    if (!userStatus) return true;
+
+    const messageTime = new Date(message.timestamp).getTime();
+    const lastReadTime = new Date(userStatus.lastReadTimestamp).getTime();
+    
+    return messageTime > lastReadTime;
+  }, [readStatus, selectedChannelId]);
+
+  // Update read status when messages are viewed
+  useEffect(() => {
+    if (!selectedChannelId || !channelMessages.length || !session?.user?.email) return;
+
+    const lastMessage = channelMessages[channelMessages.length - 1];
+    if (!lastMessage) return;
+
+    // Only update if we're at the bottom of the chat
+    if (shouldAutoScroll) {
+      fetch('/api/messages/read', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          channelId: selectedChannelId,
+          messageId: lastMessage.messageId || lastMessage.timestamp,
+          workspaceId
+        })
+      })
+      .catch(error => console.error('Error updating read status:', error));
+    }
+  }, [channelMessages, selectedChannelId, session?.user?.email, shouldAutoScroll, workspaceId]);
 
   if (isLoading) {
     return <div>Loading...</div>;
@@ -487,9 +584,22 @@ export default function WorkspaceClient({ workspaceId }: WorkspaceClientProps) {
                   const previousMessage = messages[index - 1];
                   const showHeader = !previousMessage || previousMessage.userId !== message.userId;
                   const isOwnMessage = message.userId === session?.user?.email;
+                  
+                  // Add unread message divider
+                  const showUnreadDivider = index > 0 && 
+                    session?.user?.email &&
+                    isMessageUnread(messages[index - 1], session.user.email) &&
+                    !isMessageUnread(message, session.user.email);
 
                   return (
-                    <div key={message.timestamp} className="flex flex-col group">
+                    <div key={message.timestamp} className="flex flex-col group message-item">
+                      {showUnreadDivider && (
+                        <div className="border-t border-red-500 my-2 relative">
+                          <span className="absolute -top-2.5 left-2 bg-background px-2 text-xs text-red-500">
+                            New Messages
+                          </span>
+                        </div>
+                      )}
                       {showHeader && (
                         <div className="flex items-center gap-2 text-xs text-gray-500 mt-2 mb-1">
                           <Avatar userId={message.userId}>

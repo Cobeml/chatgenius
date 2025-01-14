@@ -83,7 +83,28 @@
 - [ ] User presence tracking
 - [ ] Last seen functionality
 - [ ] Typing indicators
-- [ ] Read receipts
+- [ ] Read Receipts
+  - [ ] Infrastructure
+    - [ ] Add last_read_message field to channel membership
+    - [ ] Set up read status tracking in DynamoDB
+    - [ ] Create read status API endpoints
+  - [ ] WebSocket Integration
+    - [ ] Add read_receipt message type
+    - [ ] Implement read status broadcasts
+    - [ ] Handle offline/reconnection sync
+  - [ ] UI Components
+    - [ ] Unread message divider
+    - [ ] Read status indicators
+    - [ ] Last read timestamp display
+  - [ ] Performance
+    - [ ] Batch read status updates
+    - [ ] Client-side read status cache
+    - [ ] Optimize read queries
+  - [ ] Features
+    - [ ] Automatic read on view
+    - [ ] Manual read status sync
+    - [ ] Read status in threads
+    - [ ] Cross-device status sync
 
 ### Direct Messages 🟡
 - [x] DM Infrastructure

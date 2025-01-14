@@ -671,6 +671,78 @@ const handlers = {
       console.error('Thread message handler error:', error);
       return { statusCode: 500, body: 'Failed to send thread message' };
     }
+  },
+
+  // read_receipt handler
+  async read_receipt(event: WebSocketEvent): Promise<APIGatewayProxyResult> {
+    const connectionId = event.requestContext.connectionId;
+    const body = event.body ? JSON.parse(event.body) : {};
+    const { channelId, messageId, workspaceId } = body;
+
+    try {
+      // Get the connection record to get the userId
+      const connectionRecord = await dynamoDb.get({
+        TableName: CONNECTIONS_TABLE!,
+        Key: { connectionId }
+      }).promise();
+
+      if (!connectionRecord.Item) {
+        return { statusCode: 400, body: 'Connection record not found' };
+      }
+
+      const userId = connectionRecord.Item.userId;
+      const timestamp = new Date().toISOString();
+
+      // Update the channel membership with the last read message
+      await dynamoDb.put({
+        TableName: process.env.AWS_DYNAMODB_CHANNEL_MEMBERSHIP_TABLE!,
+        Item: {
+          channelId,
+          userId,
+          lastReadMessageId: messageId,
+          lastReadTimestamp: timestamp,
+          workspaceId
+        }
+      }).promise();
+
+      // Get all active connections in the workspace
+      const connections = await dynamoDb.query({
+        TableName: CONNECTIONS_TABLE!,
+        IndexName: 'workspaceIndex',
+        KeyConditionExpression: 'workspaceId = :workspaceId',
+        FilterExpression: '#status IN (:status1, :status2)',
+        ExpressionAttributeNames: {
+          '#status': 'status'
+        },
+        ExpressionAttributeValues: {
+          ':workspaceId': workspaceId,
+          ':status1': 'connected',
+          ':status2': 'online'
+        }
+      }).promise();
+
+      // Broadcast to all connections
+      const broadcastMessage = {
+        type: 'read_receipt',
+        channelId,
+        userId,
+        messageId,
+        timestamp
+      };
+
+      const broadcastPromises = connections.Items?.map(connection =>
+        sendMessageToConnection(connection.connectionId, broadcastMessage)
+      );
+
+      if (broadcastPromises) {
+        await Promise.all(broadcastPromises);
+      }
+
+      return { statusCode: 200, body: 'Read receipt broadcast' };
+    } catch (error) {
+      console.error('read_receipt error:', error);
+      return { statusCode: 500, body: 'Failed to broadcast read receipt' };
+    }
   }
 };
 
@@ -752,6 +824,9 @@ export async function POST(request: Request) {
         break;
       case 'typing':
         result = await handlers.typing(event);
+        break;
+      case 'read_receipt':
+        result = await handlers.read_receipt(event);
         break;
       default:
         console.error('Unknown route key:', routeKey);

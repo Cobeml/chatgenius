@@ -56,6 +56,14 @@ export interface DynamoDBSchemas {
     timestamp: string;
     status: 'connected' | 'disconnected' | 'online' | 'offline' | 'away';
   }
+
+  ChannelMembership: {
+    channelId: string;
+    userId: string;
+    lastReadMessageId: string;
+    lastReadTimestamp: string;
+    workspaceId: string;
+  }
 }
 
 export const DynamoDBTableSchemas = {
@@ -134,6 +142,32 @@ export const DynamoDBTableSchemas = {
         IndexName: 'workspaceIndex',
         KeySchema: [
           { AttributeName: 'workspaceId', KeyType: 'HASH' }
+        ],
+        Projection: {
+          ProjectionType: 'ALL'
+        }
+      }
+    ],
+    BillingMode: 'PAY_PER_REQUEST'
+  },
+
+  ChannelMembership: {
+    TableName: process.env.AWS_DYNAMODB_CHANNEL_MEMBERSHIP_TABLE!,
+    KeySchema: [
+      { AttributeName: 'channelId', KeyType: 'HASH' },
+      { AttributeName: 'userId', KeyType: 'RANGE' }
+    ],
+    AttributeDefinitions: [
+      { AttributeName: 'channelId', AttributeType: 'S' },
+      { AttributeName: 'userId', AttributeType: 'S' },
+      { AttributeName: 'workspaceId', AttributeType: 'S' }
+    ],
+    GlobalSecondaryIndexes: [
+      {
+        IndexName: 'workspaceUserIndex',
+        KeySchema: [
+          { AttributeName: 'workspaceId', KeyType: 'HASH' },
+          { AttributeName: 'userId', KeyType: 'RANGE' }
         ],
         Projection: {
           ProjectionType: 'ALL'

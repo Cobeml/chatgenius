@@ -107,3 +107,51 @@
 - No need for new API routes or tables
 - Maintaining consistent message format
 - Following security best practices
+
+## Current Task: Read Receipts Implementation
+
+### Implementation Plan
+
+1. Data Model & Storage
+   - Add `last_read_message_id` field to channel membership records
+   - Store in DynamoDB with composite key: `{channelId}#{userId}`
+   - Update on message view or explicit read action
+   - Track per-channel read status
+
+2. Backend Implementation
+   - New API routes:
+     - POST /api/messages/read - Mark messages as read
+     - GET /api/messages/read-status - Get read status for channel
+   - WebSocket events:
+     - `read_receipt` - Broadcast when user reads messages
+     - `read_status_update` - Real-time read status updates
+
+3. Frontend Implementation
+   - Add read status tracking to message list
+   - Visual indicators:
+     - Unread message divider
+     - Last read timestamp
+     - Read/unread status per message
+   - Automatic read updates on message view
+   - Manual read status sync on reconnect
+
+4. Performance Considerations
+   - Batch read status updates
+   - Optimize read status queries
+   - Cache read receipts client-side
+   - Debounce read status broadcasts
+
+### Technical Details
+- Read status tracked per user per channel
+- Real-time updates via existing WebSocket
+- Optimistic UI updates for better UX
+- Consistent read status across devices
+- Handle offline/reconnection scenarios
+
+### Dependencies
+- Existing WebSocket infrastructure
+- Channel membership system
+- Message tracking system
+- User session management
+
+Would you like me to proceed with this implementation plan?
