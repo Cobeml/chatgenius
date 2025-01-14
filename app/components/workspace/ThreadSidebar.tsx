@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { useWebSocket } from '@/hooks/useWebSocket';
+import { Button } from '@/app/components/ui/button';
+import { ScrollArea } from '@/app/components/ui/scroll-area';
+import { Avatar, AvatarFallback } from '@/app/components/ui/avatar';
+import { useWebSocket } from '@/app/hooks/useWebSocket';
 import { formatRelativeTime } from '@/lib/utils';
 
 interface ThreadMessage {

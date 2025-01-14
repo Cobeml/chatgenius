@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { MessageSquare } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { formatRelativeTime } from '@/lib/utils';
+import { Button } from '@/app/components/ui/button';
+import { Avatar, AvatarFallback } from '@/app/components/ui/avatar';
+import { formatRelativeTime, getAvatarColor } from '@/lib/utils';
 import { ThreadSidebar } from './ThreadSidebar';
 
 interface MessageProps {
@@ -40,7 +40,9 @@ export function Message({ id, content, userId, timestamp, attachments, threadCou
     <>
       <div className="group relative flex items-start space-x-3 px-4 py-2 hover:bg-accent/5">
         <Avatar>
-          <AvatarFallback>{userId[0]?.toUpperCase()}</AvatarFallback>
+          <AvatarFallback className={getAvatarColor(userId)}>
+            {userId[0]?.toUpperCase()}
+          </AvatarFallback>
         </Avatar>
         <div className="flex-1 space-y-1">
           <div className="flex items-center space-x-2">

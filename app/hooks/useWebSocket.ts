@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 
 interface WebSocketMessage {
-  type: 'message' | 'presence' | 'typing' | 'thread_message';
+  type: 'message' | 'presence' | 'typing' | 'thread_message' | 'thread_created' | 'thread_updated';
   channelId?: string;
   content?: string;
   userId?: string;
@@ -38,7 +38,17 @@ export function useWebSocket(workspaceId: string) {
       return;
     }
 
-    const wsUrl = new URL(process.env.NEXT_PUBLIC_WEBSOCKET_URL!);
+    // Determine which WebSocket URL to use based on environment
+    const wsUrlString = process.env.NODE_ENV === 'development' 
+      ? process.env.NEXT_PUBLIC_WEBSOCKET_URL_LOCAL
+      : process.env.NEXT_PUBLIC_WEBSOCKET_URL_PROD;
+
+    if (!wsUrlString) {
+      console.error('WebSocket URL not configured for current environment:', process.env.NODE_ENV);
+      return;
+    }
+
+    const wsUrl = new URL(wsUrlString);
     wsUrl.searchParams.append('token', session.user.email);
     wsUrl.searchParams.append('workspaceId', workspaceId);
 
@@ -46,7 +56,8 @@ export function useWebSocket(workspaceId: string) {
       url: wsUrl.toString(),
       workspaceId,
       userEmail: session.user.email,
-      sessionStatus: status
+      sessionStatus: status,
+      environment: process.env.NODE_ENV
     });
     
     function setupWebSocket() {
@@ -125,22 +136,40 @@ export function useWebSocket(workspaceId: string) {
   }, [workspaceId, session?.user?.email, status]);
 
   // Send a message
-  const sendMessage = useCallback((channelId: string, content: string, attachments?: string[], parentMessageId?: string) => {
+  const sendMessage = useCallback((channelId: string, content: string, attachments?: string[]) => {
     if (!socket || socket.readyState !== WebSocket.OPEN) {
       console.error('Cannot send message: WebSocket not connected');
       return;
     }
 
     const message = {
-      action: parentMessageId ? 'thread_message' : 'message',
+      action: 'message',
       channelId,
       content,
       workspaceId,
-      attachments,
-      parentMessageId
+      attachments
     };
     
     console.log('Sending WebSocket message:', message);
+    socket.send(JSON.stringify(message));
+  }, [socket, workspaceId]);
+
+  // Send a thread message
+  const sendThreadMessage = useCallback((parentMessageId: string, content: string, attachments?: string[]) => {
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      console.error('Cannot send thread message: WebSocket not connected');
+      return;
+    }
+
+    const message = {
+      action: 'thread_message',
+      parentMessageId,
+      content,
+      workspaceId,
+      attachments
+    };
+    
+    console.log('Sending thread message:', message);
     socket.send(JSON.stringify(message));
   }, [socket, workspaceId]);
 
@@ -171,6 +200,7 @@ export function useWebSocket(workspaceId: string) {
     isConnected,
     lastMessage,
     sendMessage,
+    sendThreadMessage,
     updatePresence,
     updateTyping
   };

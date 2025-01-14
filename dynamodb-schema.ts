@@ -41,6 +41,7 @@ export interface DynamoDBSchemas {
 
   Threads: {
     parentMessageId: string;
+    messageId: string;
     timestamp: string;
     userId: string;
     content: string;
@@ -109,10 +110,12 @@ export const DynamoDBTableSchemas = {
   Threads: {
     TableName: process.env.AWS_DYNAMODB_THREADS_TABLE!,
     KeySchema: [
-      { AttributeName: 'parentMessageId', KeyType: 'HASH' }
+      { AttributeName: 'parentMessageId', KeyType: 'HASH' },
+      { AttributeName: 'messageId', KeyType: 'RANGE' }
     ],
     AttributeDefinitions: [
-      { AttributeName: 'parentMessageId', AttributeType: 'S' }
+      { AttributeName: 'parentMessageId', AttributeType: 'S' },
+      { AttributeName: 'messageId', AttributeType: 'S' }
     ],
     BillingMode: 'PAY_PER_REQUEST'
   },

@@ -138,17 +138,22 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Delete the message
-    await dynamoDb.delete({
+    // Update the message to show as deleted instead of deleting it
+    const result = await dynamoDb.update({
       TableName: process.env.AWS_DYNAMODB_MESSAGES_TABLE!,
       Key: {
         channelId,
         timestamp: messageId
-      }
+      },
+      UpdateExpression: 'SET content = :content, deleted = :deleted',
+      ExpressionAttributeValues: {
+        ':content': '[Message deleted]',
+        ':deleted': true
+      },
+      ReturnValues: 'ALL_NEW'
     }).promise();
 
-    return NextResponse.json({ success: true });
-
+    return NextResponse.json(result.Attributes);
   } catch (error) {
     console.error("Delete message error:", error);
     return NextResponse.json({ error: "Failed to delete message" }, { status: 500 });

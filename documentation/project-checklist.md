@@ -54,13 +54,11 @@
   - [x] Thread message component
   - [x] Thread reply input
   - [x] Thread preview in main channel
-  - [x] Thread view mode
-  - [x] Thread indicators
-- [ ] Thread Backend Implementation
+- [x] Thread Backend Implementation
   - [x] Thread creation API
   - [x] Thread reply API
-  - [ ] Thread deletion API
-  - [x] Thread participant tracking
+  - [x] Thread deletion API
+  - [ ] Thread participant tracking
   - [x] Real-time thread updates via WebSocket
     - [x] WebSocket message types for threads
     - [x] Thread message handler
@@ -68,9 +66,11 @@
     - [x] Real-time thread broadcasts
 - [ ] Thread Features
   - [x] Reply count tracking
+  - [x] Message deletion indicators
+  - [x] Message editing in threads
   - [ ] Thread notifications
   - [ ] Thread search
-  - [x] Thread participant list
+  - [ ] Thread participant list
   - [ ] Mark thread as resolved
   - [ ] Thread sharing
 - [ ] Thread Performance

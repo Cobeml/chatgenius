@@ -23,9 +23,14 @@ interface WebSocketError extends Error {
 
 // Helper function to send message to a connection
 async function sendMessageToConnection(connectionId: string, data: Record<string, unknown>) {
-  // Extract the endpoint from the WebSocket URL
-  const wsEndpoint = process.env.NEXT_PUBLIC_WEBSOCKET_URL!.replace('wss://', '').split('/')[0];
-  const endpoint = `https://${wsEndpoint}/prod`;
+  // Extract the endpoint from the WebSocket URL based on environment
+  const wsEndpoint = process.env.NODE_ENV === 'development'
+    ? process.env.NEXT_PUBLIC_WEBSOCKET_URL_LOCAL!.replace('ws://', '').split('/')[0]
+    : process.env.NEXT_PUBLIC_WEBSOCKET_URL_PROD!.replace('wss://', '').split('/')[0];
+  
+  const endpoint = process.env.NODE_ENV === 'development'
+    ? `http://${wsEndpoint}`
+    : `https://${wsEndpoint}/prod`;
 
   const api = new ApiGatewayManagementApi({
     apiVersion: '2018-11-29',
@@ -36,7 +41,8 @@ async function sendMessageToConnection(connectionId: string, data: Record<string
     console.log('Attempting to send message to connection:', {
       connectionId,
       data,
-      endpoint
+      endpoint,
+      environment: process.env.NODE_ENV
     });
 
     await api.postToConnection({

@@ -8,10 +8,10 @@ interface MessageInputProps {
   channelId: string;
   onMessageSent: (content: string, attachments?: string[]) => void | Promise<void>;
   onTyping?: (isTyping: boolean) => void;
-  placeholder?: string;
+  isThreadReply?: boolean;
 }
 
-export function MessageInput({ channelId, onMessageSent, onTyping, placeholder = "Type a message..." }: MessageInputProps) {
+export function MessageInput({ channelId, onMessageSent, onTyping, isThreadReply }: MessageInputProps) {
   const [content, setContent] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [pendingAttachment, setPendingAttachment] = useState<{ name: string; url: string } | null>(null);
@@ -130,7 +130,11 @@ export function MessageInput({ channelId, onMessageSent, onTyping, placeholder =
               handleTyping();
             }}
             onKeyDown={handleKeyPress}
-            placeholder={placeholder}
+            placeholder={pendingAttachment 
+              ? "Add a message..." 
+              : isThreadReply 
+                ? "Reply to thread..." 
+                : "Type a message..."}
             className="w-full min-h-[60px] bg-white text-black p-2 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-hover"
           />
         </div>

@@ -5,11 +5,39 @@ import { ScrollArea } from "@/app/components/ui/scroll-area";
 import { MessageInput } from "@/app/components/workspace/MessageInput";
 import { InviteModal } from "@/app/components/workspace/InviteModal";
 import { useSearchParams } from 'next/navigation';
-import { Download, LogOut, Settings, Hash, Lock, X, MessageSquare, ArrowLeft } from 'lucide-react';
+import { Download, LogOut, Settings, Hash, Lock, X, MessageSquare } from 'lucide-react';
 import Link from 'next/link';
 import { ChannelSettingsModal } from "@/app/components/workspace/ChannelSettingsModal";
 import { useSession } from "next-auth/react";
 import { useWebSocket } from '@/app/hooks/useWebSocket';
+import { Avatar, AvatarFallback } from '@/app/components/ui/avatar';
+
+// Add color generation function
+const getAvatarColor = (userId: string) => {
+  const colors = [
+    'bg-red-500',
+    'bg-orange-500',
+    'bg-amber-500',
+    'bg-yellow-500',
+    'bg-lime-500',
+    'bg-green-500',
+    'bg-emerald-500',
+    'bg-teal-500',
+    'bg-cyan-500',
+    'bg-sky-500',
+    'bg-blue-500',
+    'bg-indigo-500',
+    'bg-violet-500',
+    'bg-purple-500',
+    'bg-fuchsia-500',
+    'bg-pink-500',
+    'bg-rose-500',
+  ];
+  
+  const firstChar = userId.charAt(0).toLowerCase();
+  const index = firstChar.charCodeAt(0) % colors.length;
+  return colors[index];
+};
 
 interface Channel {
   id: string;
@@ -26,8 +54,8 @@ interface Message {
   messageId?: string;
   attachments?: string[];
   edited?: boolean;
+  deleted?: boolean;
   threadCount?: number;
-  parentMessageId?: string;
 }
 
 interface WorkspaceClientProps {
@@ -144,22 +172,47 @@ export default function WorkspaceClient({ workspaceId }: WorkspaceClientProps) {
 
   const handleEditMessage = async (messageId: string, content: string) => {
     try {
-      const response = await fetch(`/api/messages/${messageId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          channelId: selectedChannelId,
-          content
-        }),
-      });
+      if (activeThread && threadMessages.find(m => m.timestamp === messageId)) {
+        // Edit thread message
+        const response = await fetch(`/api/messages/${activeThread.messageId || activeThread.timestamp}/thread?messageId=${messageId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            content,
+            channelId: selectedChannelId
+          }),
+        });
 
-      if (!response.ok) {
-        throw new Error('Failed to edit message');
+        if (!response.ok) {
+          throw new Error('Failed to edit thread message');
+        }
+
+        const updatedMessage = await response.json();
+        setThreadMessages(prev => prev.map(m => 
+          m.timestamp === messageId ? { ...m, content, edited: true } : m
+        ));
+      } else {
+        // Edit channel message
+        const response = await fetch(`/api/messages/${messageId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            channelId: selectedChannelId,
+            content
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to edit message');
+        }
+
+        await fetchMessages();
       }
 
-      await fetchMessages();
       setEditingMessage(null);
       setEditContent('');
     } catch (error) {
@@ -169,15 +222,35 @@ export default function WorkspaceClient({ workspaceId }: WorkspaceClientProps) {
 
   const handleDeleteMessage = async (messageId: string) => {
     try {
-      const response = await fetch(`/api/messages/${messageId}?channelId=${selectedChannelId}`, {
-        method: 'DELETE',
-      });
+      if (activeThread && threadMessages.find(m => m.timestamp === messageId)) {
+        // Delete thread message
+        const response = await fetch(`/api/messages/${activeThread.messageId || activeThread.timestamp}/thread?messageId=${messageId}&channelId=${selectedChannelId}`, {
+          method: 'DELETE',
+        });
 
-      if (!response.ok) {
-        throw new Error('Failed to delete message');
+        if (!response.ok) {
+          throw new Error('Failed to delete thread message');
+        }
+
+        const deletedMessage = await response.json();
+        setThreadMessages(prev => prev.map(m => 
+          m.timestamp === messageId ? deletedMessage : m
+        ));
+      } else {
+        // Delete channel message
+        const response = await fetch(`/api/messages/${messageId}?channelId=${selectedChannelId}`, {
+          method: 'DELETE',
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to delete message');
+        }
+
+        const deletedMessage = await response.json();
+        setMessages(prev => prev.map(m => 
+          m.timestamp === messageId ? deletedMessage : m
+        ));
       }
-
-      await fetchMessages();
     } catch (error) {
       console.error('Error deleting message:', error);
     }
@@ -332,44 +405,25 @@ export default function WorkspaceClient({ workspaceId }: WorkspaceClientProps) {
     }
   }, [messages, shouldAutoScroll, scrollToBottom]);
 
-  // Handle thread creation/reply
-  const handleThreadReply = useCallback(async (parentMessage: Message, content: string, attachments?: string[]) => {
-    if (!selectedChannelId || !session?.user?.email) return;
-
-    try {
-      // Send via WebSocket for real-time delivery
-      sendMessage(selectedChannelId, content, attachments, parentMessage.messageId || parentMessage.timestamp);
-
-      // Clear typing indicator
-      handleTyping(false);
-    } catch (error) {
-      console.error('Error sending thread reply:', error);
-    }
-  }, [selectedChannelId, session?.user?.email, sendMessage, handleTyping]);
-
-  // Handle thread view mode
-  const handleViewThread = useCallback(async (message: Message) => {
+  // Handle thread view
+  const handleViewThread = useCallback((message: Message) => {
     setActiveThread(message);
     
-    try {
-      // Fetch thread messages
-      const response = await fetch(`/api/messages/${message.messageId || message.timestamp}/thread`);
-      if (!response.ok) throw new Error('Failed to fetch thread messages');
-      const data = await response.json();
-      
-      setThreadMessages(data.sort((a: Message, b: Message) => 
-        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-      ));
-    } catch (error) {
-      console.error('Error fetching thread messages:', error);
-    }
+    // Fetch thread messages
+    fetch(`/api/messages/${message.messageId || message.timestamp}/thread`)
+      .then(response => {
+        if (!response.ok) throw new Error('Failed to fetch thread messages');
+        return response.json();
+      })
+      .then(data => {
+        setThreadMessages(data.sort((a: Message, b: Message) => 
+          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+        ));
+      })
+      .catch(error => {
+        console.error('Error fetching thread messages:', error);
+      });
   }, []);
-
-  // Exit thread view
-  const handleExitThread = () => {
-    setActiveThread(null);
-    setThreadMessages([]);
-  };
 
   if (isLoading) {
     return <div>Loading...</div>;
@@ -379,24 +433,14 @@ export default function WorkspaceClient({ workspaceId }: WorkspaceClientProps) {
     <div className="h-full flex flex-col overflow-hidden">
       <div className="h-12 min-h-[3rem] border-b flex items-center justify-between px-4">
         <div className="flex items-center gap-3">
-          {activeThread ? (
-            <button
-              onClick={handleExitThread}
-              className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              <span>Back to {currentChannel?.name}</span>
-            </button>
-          ) : (
-            <div className="flex items-center gap-2">
-              {currentChannel?.isPrivate ? (
-                <Lock className="h-5 w-5 text-foreground" />
-              ) : (
-                <Hash className="h-5 w-5 text-foreground" />
-              )}
-              <h1 className="font-semibold">{currentChannel?.name || 'Select a channel'}</h1>
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            {currentChannel?.isPrivate ? (
+              <Lock className="h-5 w-5 text-foreground" />
+            ) : (
+              <Hash className="h-5 w-5 text-foreground" />
+            )}
+            <h1 className="font-semibold">{currentChannel?.name || 'Select a channel'}</h1>
+          </div>
         </div>
         <div className="flex gap-2">
           {isAdmin && currentChannel && (
@@ -417,38 +461,196 @@ export default function WorkspaceClient({ workspaceId }: WorkspaceClientProps) {
         </div>
       </div>
 
-      <ScrollArea className="flex-1 relative">
-        <div 
-          ref={scrollAreaRef} 
-          onScroll={handleScroll}
-          className="p-2 space-y-1 h-full overflow-y-auto absolute inset-0"
-        >
-          <div className="space-y-1">
-            {(activeThread ? [activeThread, ...threadMessages] : messages).map((message, index) => {
-              const previousMessage = messages[index - 1];
-              const showHeader = !previousMessage || previousMessage.userId !== message.userId;
-              const isOwnMessage = message.userId === session?.user?.email;
-              const isThreadReply = message.parentMessageId;
-              const hasReplies = message.threadCount && message.threadCount > 0;
+      <div className="flex-1 flex">
+        <div className={`flex-1 flex flex-col ${activeThread ? 'hidden md:flex' : ''}`}>
+          <ScrollArea className="flex-1 relative">
+            <div 
+              ref={scrollAreaRef} 
+              onScroll={handleScroll}
+              className="p-2 space-y-1 h-full overflow-y-auto absolute inset-0"
+            >
+              <div className="space-y-1">
+                {messages.map((message, index) => {
+                  const previousMessage = messages[index - 1];
+                  const showHeader = !previousMessage || previousMessage.userId !== message.userId;
+                  const isOwnMessage = message.userId === session?.user?.email;
 
-              return (
-                <div key={message.timestamp} className="flex flex-col group">
-                  {showHeader && (
-                    <span className="text-xs text-gray-500 mt-2 mb-1">{message.userId}</span>
-                  )}
+                  return (
+                    <div key={message.timestamp} className="flex flex-col group">
+                      {showHeader && (
+                        <div className="flex items-center gap-2 text-xs text-gray-500 mt-2 mb-1">
+                          <Avatar userId={message.userId}>
+                            <AvatarFallback>{message.userId[0]?.toUpperCase()}</AvatarFallback>
+                          </Avatar>
+                          <span>{message.userId}</span>
+                        </div>
+                      )}
+                      <div className="flex items-start gap-2">
+                        <div className="flex-1">
+                          {editingMessage === message.timestamp ? (
+                            <div className="flex items-end gap-2">
+                              <textarea
+                                value={editContent}
+                                onChange={(e) => setEditContent(e.target.value)}
+                                className="flex-1 min-h-[60px] bg-white text-black p-2 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-hover max-w-[85%]"
+                                autoFocus
+                              />
+                              <div className="flex gap-1">
+                                <button
+                                  onClick={() => handleEditMessage(message.timestamp, editContent)}
+                                  className="px-2 py-1 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90"
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setEditingMessage(null);
+                                    setEditContent('');
+                                  }}
+                                  className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/90"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="bg-primary/10 border border-primary/30 rounded-lg px-3 py-1.5 text-sm text-foreground inline-block max-w-[85%] relative group">
+                              <div className="flex flex-col gap-1">
+                                <span className={message.deleted ? "italic text-muted-foreground" : ""}>
+                                  {message.content}
+                                  {message.edited && !message.deleted && (
+                                    <span className="text-[10px] text-muted-foreground ml-1">(edited)</span>
+                                  )}
+                                </span>
+                                {message.attachments && message.attachments.length > 0 && !message.deleted && (
+                                  <div className="mt-1 flex items-center gap-2">
+                                    <span className="text-xs text-pink-500">
+                                      {getFileNameFromUrl(message.attachments[0])}
+                                    </span>
+                                    <button
+                                      onClick={() => handleFileDownload(message.attachments![0])}
+                                      className="flex items-center gap-1 text-xs text-pink-700 hover:text-pink-500"
+                                    >
+                                      <Download className="h-3 w-3" />
+                                      Download
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                              <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-[105%] opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 bg-background/80 backdrop-blur-sm rounded-md p-0.5">
+                                <button
+                                  onClick={() => handleViewThread(message)}
+                                  className="p-1 hover:bg-accent rounded"
+                                  title="Reply in thread"
+                                >
+                                  <MessageSquare className="h-3 w-3" />
+                                </button>
+                                {isOwnMessage && (
+                                  <>
+                                    <button
+                                      onClick={() => {
+                                        setEditingMessage(message.timestamp);
+                                        setEditContent(message.content);
+                                      }}
+                                      className="p-1 hover:bg-accent rounded"
+                                      title="Edit message"
+                                    >
+                                      <Settings className="h-3 w-3" />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteMessage(message.timestamp)}
+                                      className="p-1 hover:bg-destructive/10 text-destructive rounded"
+                                      title="Delete message"
+                                    >
+                                      <X className="h-3 w-3" />
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        {editingMessage !== message.timestamp && (
+                          <span className="text-[10px] text-gray-400 pt-1">
+                            {new Date(message.timestamp).toLocaleTimeString([], { 
+                              hour: '2-digit', 
+                              minute: '2-digit' 
+                            })}
+                          </span>
+                        )}
+                      </div>
+                      {message.threadCount && message.threadCount > 0 && (
+                        <button
+                          onClick={() => handleViewThread(message)}
+                          className="ml-8 mt-1 text-xs text-blue-500 hover:text-blue-600 flex items-center gap-1"
+                        >
+                          <MessageSquare className="h-3 w-3" />
+                          {message.threadCount === 1 
+                            ? "1 reply" 
+                            : `${message.threadCount} replies`}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+                {Object.keys(typingUsers).length > 0 && (
+                  <div className="text-xs text-muted-foreground italic">
+                    {Object.keys(typingUsers).length === 1
+                      ? 'Someone is typing...'
+                      : `${Object.keys(typingUsers).length} people are typing...`}
+                  </div>
+                )}
+              </div>
+            </div>
+          </ScrollArea>
+
+          <div className="p-2 border-t">
+            <MessageInput 
+              channelId={selectedChannelId || ''}
+              onMessageSent={handleSendMessage}
+              onTyping={handleTyping}
+            />
+          </div>
+        </div>
+
+        {activeThread && (
+          <div className="flex-1 flex flex-col border-l">
+            <div className="h-12 min-h-[3rem] border-b flex items-center justify-between px-4">
+              <div className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5" />
+                <h2 className="font-semibold">Thread</h2>
+              </div>
+              <button
+                onClick={() => setActiveThread(null)}
+                className="hover:bg-accent p-2 rounded-md transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <ScrollArea className="flex-1 relative">
+              <div className="p-4 space-y-4">
+                {/* Parent Message */}
+                <div className="flex flex-col">
+                  <div className="flex items-center gap-2 text-xs text-gray-500">
+                    <Avatar userId={activeThread.userId}>
+                      <AvatarFallback>{activeThread.userId[0]?.toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                    <span>{activeThread.userId}</span>
+                  </div>
                   <div className="flex items-start gap-2">
                     <div className="flex-1">
-                      {editingMessage === message.timestamp ? (
+                      {editingMessage === activeThread.timestamp ? (
                         <div className="flex items-end gap-2">
                           <textarea
                             value={editContent}
                             onChange={(e) => setEditContent(e.target.value)}
-                            className="flex-1 min-h-[60px] bg-white text-black p-2 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-hover"
+                            className="flex-1 min-h-[60px] bg-white text-black p-2 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-hover max-w-[85%]"
                             autoFocus
                           />
                           <div className="flex gap-1">
                             <button
-                              onClick={() => handleEditMessage(message.timestamp, editContent)}
+                              onClick={() => handleEditMessage(activeThread.timestamp, editContent)}
                               className="px-2 py-1 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90"
                             >
                               Save
@@ -465,105 +667,180 @@ export default function WorkspaceClient({ workspaceId }: WorkspaceClientProps) {
                           </div>
                         </div>
                       ) : (
-                        <div className="bg-primary/10 border border-primary/30 rounded-lg px-3 py-1.5 text-sm text-foreground inline-block max-w-[85%] relative group">
+                        <div className="bg-primary/10 border border-primary/30 rounded-lg px-3 py-1.5 text-sm text-foreground mt-1 inline-block relative group">
                           <div className="flex flex-col gap-1">
-                            <span>{message.content}</span>
-                            {message.edited && (
-                              <span className="text-[10px] text-muted-foreground">(edited)</span>
-                            )}
-                            {isThreadReply && !activeThread && (
-                              <button
-                                onClick={() => handleViewThread(message)}
-                                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-                              >
-                                <MessageSquare className="h-3 w-3" />
-                                <span>View thread</span>
-                              </button>
-                            )}
-                            {hasReplies && !activeThread && (
-                              <button
-                                onClick={() => handleViewThread(message)}
-                                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-                              >
-                                <MessageSquare className="h-3 w-3" />
-                                <span>{message.threadCount} {message.threadCount === 1 ? 'reply' : 'replies'}</span>
-                              </button>
-                            )}
-                            {message.attachments && message.attachments.length > 0 && (
-                              <div className="mt-1 flex items-center gap-2">
-                                <span className="text-xs text-pink-500">
-                                  {getFileNameFromUrl(message.attachments[0])}
-                                </span>
-                                <button
-                                  onClick={() => handleFileDownload(message.attachments![0])}
-                                  className="flex items-center gap-1 text-xs text-pink-700 hover:text-pink-500"
-                                >
-                                  <Download className="h-3 w-3" />
-                                  Download
-                                </button>
-                              </div>
-                            )}
+                            <span className={activeThread.deleted ? "italic text-muted-foreground" : ""}>
+                              {activeThread.content}
+                              {activeThread.edited && !activeThread.deleted && (
+                                <span className="text-[10px] text-muted-foreground ml-1">(edited)</span>
+                              )}
+                            </span>
                           </div>
-                          {isOwnMessage && (
-                            <div className="absolute right-0 top-0 translate-x-[105%] opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                          {activeThread.userId === session?.user?.email && (
+                            <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-[calc(100%+4px)] opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 bg-background/80 backdrop-blur-sm rounded-md p-0.5">
                               <button
                                 onClick={() => {
-                                  setEditingMessage(message.timestamp);
-                                  setEditContent(message.content);
+                                  setEditingMessage(activeThread.timestamp);
+                                  setEditContent(activeThread.content);
                                 }}
                                 className="p-1 hover:bg-accent rounded"
+                                title="Edit message"
                               >
                                 <Settings className="h-3 w-3" />
                               </button>
                               <button
-                                onClick={() => handleDeleteMessage(message.timestamp)}
+                                onClick={() => handleDeleteMessage(activeThread.timestamp)}
                                 className="p-1 hover:bg-destructive/10 text-destructive rounded"
+                                title="Delete message"
                               >
                                 <X className="h-3 w-3" />
                               </button>
                             </div>
                           )}
-                          {!activeThread && (
-                            <button
-                              onClick={() => handleViewThread(message)}
-                              className="absolute right-0 top-0 translate-x-[105%] opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-accent rounded"
-                            >
-                              <MessageSquare className="h-3 w-3" />
-                            </button>
-                          )}
                         </div>
                       )}
                     </div>
-                    <span className="text-[10px] text-gray-400 pt-1">
-                      {new Date(message.timestamp).toLocaleTimeString([], { 
-                        hour: '2-digit', 
-                        minute: '2-digit' 
-                      })}
-                    </span>
+                    {editingMessage !== activeThread.timestamp && (
+                      <span className="text-[10px] text-gray-400 pt-1">
+                        {new Date(activeThread.timestamp).toLocaleTimeString([], { 
+                          hour: '2-digit', 
+                          minute: '2-digit' 
+                        })}
+                      </span>
+                    )}
                   </div>
                 </div>
-              );
-            })}
-            {Object.keys(typingUsers).length > 0 && (
-              <div className="text-xs text-muted-foreground italic">
-                {Object.keys(typingUsers).length === 1
-                  ? 'Someone is typing...'
-                  : `${Object.keys(typingUsers).length} people are typing...`}
-              </div>
-            )}
-          </div>
-        </div>
-      </ScrollArea>
 
-      <div className="p-2 border-t">
-        <MessageInput 
-          channelId={selectedChannelId || ''}
-          onMessageSent={activeThread ? 
-            (content, attachments) => handleThreadReply(activeThread, content, attachments) : 
-            handleSendMessage}
-          onTyping={handleTyping}
-          placeholder={activeThread ? "Reply in thread..." : "Type a message..."}
-        />
+                {/* Thread Messages */}
+                <div className="space-y-2">
+                  {threadMessages.map((message, index) => {
+                    const previousMessage = index === 0 ? activeThread : threadMessages[index - 1];
+                    const showHeader = !previousMessage || previousMessage.userId !== message.userId;
+                    const isOwnMessage = message.userId === session?.user?.email;
+
+                    return (
+                      <div key={message.timestamp} className="flex flex-col">
+                        {showHeader && (
+                          <div className="flex items-center gap-2 text-xs text-gray-500">
+                            <Avatar userId={message.userId}>
+                              <AvatarFallback>{message.userId[0]?.toUpperCase()}</AvatarFallback>
+                            </Avatar>
+                            <span>{message.userId}</span>
+                          </div>
+                        )}
+                        <div className="flex items-start gap-2">
+                          <div className="flex-1">
+                            {editingMessage === message.timestamp ? (
+                              <div className="flex items-end gap-2">
+                                <textarea
+                                  value={editContent}
+                                  onChange={(e) => setEditContent(e.target.value)}
+                                  className="flex-1 min-h-[60px] bg-white text-black p-2 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-hover max-w-[85%]"
+                                  autoFocus
+                                />
+                                <div className="flex gap-1">
+                                  <button
+                                    onClick={() => handleEditMessage(message.timestamp, editContent)}
+                                    className="px-2 py-1 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90"
+                                  >
+                                    Save
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setEditingMessage(null);
+                                      setEditContent('');
+                                    }}
+                                    className="px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/90"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="bg-primary/10 border border-primary/30 rounded-lg px-3 py-1.5 text-sm text-foreground mt-1 inline-block relative group">
+                                <div className="flex flex-col gap-1">
+                                  <span className={message.deleted ? "italic text-muted-foreground" : ""}>
+                                    {message.content}
+                                    {message.edited && !message.deleted && (
+                                      <span className="text-[10px] text-muted-foreground ml-1">(edited)</span>
+                                    )}
+                                  </span>
+                                </div>
+                                {isOwnMessage && (
+                                  <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-[calc(100%+4px)] opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 bg-background/80 backdrop-blur-sm rounded-md p-0.5">
+                                    <button
+                                      onClick={() => {
+                                        setEditingMessage(message.timestamp);
+                                        setEditContent(message.content);
+                                      }}
+                                      className="p-1 hover:bg-accent rounded"
+                                      title="Edit message"
+                                    >
+                                      <Settings className="h-3 w-3" />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteMessage(message.timestamp)}
+                                      className="p-1 hover:bg-destructive/10 text-destructive rounded"
+                                      title="Delete message"
+                                    >
+                                      <X className="h-3 w-3" />
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          {editingMessage !== message.timestamp && (
+                            <span className="text-[10px] text-gray-400 pt-1">
+                              {new Date(message.timestamp).toLocaleTimeString([], { 
+                                hour: '2-digit', 
+                                minute: '2-digit' 
+                              })}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </ScrollArea>
+
+            <div className="p-2 border-t">
+              <MessageInput 
+                channelId={selectedChannelId || ''}
+                onMessageSent={async (content, attachments) => {
+                  if (!activeThread.messageId && !activeThread.timestamp) return;
+                  
+                  try {
+                    // Send message to thread only
+                    const threadResponse = await fetch(`/api/messages/${activeThread.messageId || activeThread.timestamp}/thread`, {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json'
+                      },
+                      body: JSON.stringify({
+                        content,
+                        userId: session?.user?.email,
+                        attachments,
+                        channelId: selectedChannelId
+                      })
+                    });
+
+                    if (!threadResponse.ok) throw new Error('Failed to send thread message');
+
+                    const newThreadMessage = await threadResponse.json();
+                    setThreadMessages(prev => [...prev, newThreadMessage]);
+                  } catch (error) {
+                    console.error('Error sending thread message:', error);
+                  }
+                }}
+                onTyping={handleTyping}
+                isThreadReply={true}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       <InviteModal
