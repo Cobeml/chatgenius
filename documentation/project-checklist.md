@@ -85,11 +85,27 @@
 - [ ] Typing indicators
 - [ ] Read receipts
 
-### Direct Messages
-- [ ] DM conversations
-- [ ] DM user selection
-- [ ] DM notifications
-- [ ] DM read status
+### Direct Messages 🟡
+- [x] DM Infrastructure
+  - [x] DM channel format (dm_user1_user2)
+  - [x] DM channel creation
+  - [x] DM channel listing
+  - [x] DM channel access control
+- [x] DM UI Components
+  - [x] DM section in sidebar
+  - [x] DM user selection
+  - [x] DM conversation view
+  - [x] DM user status
+- [ ] DM Features
+  - [x] Cross-workspace DM support
+  - [ ] DM notifications
+  - [ ] DM read status
+  - [ ] DM typing indicators
+  - [ ] DM user presence
+- [ ] DM Performance
+  - [ ] DM message caching
+  - [ ] DM conversation pagination
+  - [ ] DM real-time updates
 
 ## Phase 3: Rich Features 📋
 

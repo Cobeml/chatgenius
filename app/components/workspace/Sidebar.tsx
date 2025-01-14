@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { ScrollArea } from "@/app/components/ui/scroll-area";
-import { Hash, Plus, Settings, Lock, MoreVertical } from "lucide-react";
+import { Hash, Plus, Settings, Lock, MoreVertical, MessageCircle } from "lucide-react";
 import { SettingsModal } from "@/app/components/workspace/SettingsModal";
 import { ChannelSettingsModal } from "@/app/components/workspace/ChannelSettingsModal";
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
@@ -11,12 +11,23 @@ import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from 'next/navigation';
 import { InviteModal } from "@/app/components/workspace/InviteModal";
 import type { CSSProperties } from 'react';
+import { isDMChannel, getDMDisplayName, getDMChannelId } from "@/app/utils/dm";
+import { DMUserSelect } from "@/app/components/workspace/DMUserSelect";
 
 interface Channel {
   id: string;
   name: string;
   isPrivate: boolean;
   position: number;
+}
+
+interface DMChannel {
+  id: string;
+  lastMessage?: {
+    content: string;
+    timestamp: string;
+  };
+  unreadCount?: number;
 }
 
 interface WorkspaceData {
@@ -55,6 +66,8 @@ export function Sidebar({ workspaceId }: { workspaceId: string }) {
   const [newChannelName, setNewChannelName] = useState('');
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [isPrivateChannel, setIsPrivateChannel] = useState(false);
+  const [dmChannels, setDMChannels] = useState<DMChannel[]>([]);
+  const [workspaceMembers, setWorkspaceMembers] = useState<{ email: string }[]>([]);
 
   const isAdmin = workspace?.userRole === 'owner' || workspace?.userRole === 'admin';
 
@@ -81,10 +94,64 @@ export function Sidebar({ workspaceId }: { workspaceId: string }) {
     }
   }, [workspaceId]);
 
+  const fetchDMChannels = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/messages?userId=${session?.user?.email}`);
+      if (!res.ok) throw new Error('Failed to fetch DM channels');
+      const messages = await res.json();
+      
+      // Group messages by channel and get latest message
+      const dmChannelsMap = new Map<string, DMChannel>();
+      messages.forEach((message: any) => {
+        if (isDMChannel(message.channelId)) {
+          const existing = dmChannelsMap.get(message.channelId);
+          if (!existing || new Date(message.timestamp) > new Date(existing.lastMessage?.timestamp || '')) {
+            dmChannelsMap.set(message.channelId, {
+              id: message.channelId,
+              lastMessage: {
+                content: message.content,
+                timestamp: message.timestamp
+              }
+            });
+          }
+        }
+      });
+      
+      setDMChannels(Array.from(dmChannelsMap.values()));
+    } catch (error) {
+      console.error('Failed to fetch DM channels:', error);
+    }
+  }, [session?.user?.email]);
+
+  const fetchWorkspaceMembers = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/workspaces/${workspaceId}/members`);
+      if (!res.ok) throw new Error('Failed to fetch members');
+      const data = await res.json();
+      setWorkspaceMembers(data.filter((member: { email: string }) => 
+        member.email !== session?.user?.email
+      ));
+    } catch (error) {
+      console.error('Failed to fetch workspace members:', error);
+    }
+  }, [workspaceId, session?.user?.email]);
+
   useEffect(() => {
     fetchWorkspaceData();
     fetchChannels();
   }, [workspaceId, fetchWorkspaceData, fetchChannels]);
+
+  useEffect(() => {
+    if (session?.user?.email) {
+      fetchDMChannels();
+    }
+  }, [session?.user?.email, fetchDMChannels]);
+
+  useEffect(() => {
+    if (session?.user?.email) {
+      fetchWorkspaceMembers();
+    }
+  }, [session?.user?.email, fetchWorkspaceMembers]);
 
   const handleCreateChannel = async () => {
     try {
@@ -163,8 +230,9 @@ export function Sidebar({ workspaceId }: { workspaceId: string }) {
         )}
       </div>
 
-      {/* Channels */}
+      {/* Main Content */}
       <ScrollArea className="flex-1 px-2">
+        {/* Channels */}
         <div className="py-2">
           <div className="flex items-center justify-between px-2 mb-2">
             <h3 className="text-sm font-semibold text-muted-foreground">Channels</h3>
@@ -235,6 +303,43 @@ export function Sidebar({ workspaceId }: { workspaceId: string }) {
               )}
             </Droppable>
           </DragDropContext>
+        </div>
+
+        {/* Direct Messages */}
+        <div className="py-2">
+          <div className="px-2 mb-2">
+            <h3 className="text-sm font-semibold text-muted-foreground">Direct Messages</h3>
+          </div>
+          <div className="space-y-[2px]">
+            {workspaceMembers.map((member) => {
+              const channelId = getDMChannelId(session?.user?.email || '', member.email);
+              const dmChannel = dmChannels.find(ch => ch.id === channelId);
+              
+              return (
+                <div
+                  key={member.email}
+                  onClick={() => handleChannelSelect(channelId)}
+                  className={`cursor-pointer hover:bg-accent/50 group px-2 py-1.5 rounded ${
+                    selectedChannelId === channelId ? 'bg-accent text-accent-foreground' : ''
+                  }`}
+                >
+                  <div className="flex items-center justify-between text-sm text-muted-foreground">
+                    <div className="flex items-center">
+                      <MessageCircle className="h-4 w-4 mr-2 inline-block" />
+                      <span className={`truncate ${selectedChannelId === channelId ? 'text-accent-foreground font-medium' : ''}`}>
+                        {member.email}
+                      </span>
+                    </div>
+                    {dmChannel?.unreadCount && dmChannel.unreadCount > 0 && (
+                      <span className="bg-primary text-primary-foreground text-xs px-1.5 rounded-full">
+                        {dmChannel.unreadCount}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </ScrollArea>
 

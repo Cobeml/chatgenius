@@ -52,3 +52,58 @@
 - Maintaining consistent UI patterns
 - Ensuring dark mode compatibility
 - Following accessibility standards
+
+## Current Task: Direct Messages Implementation
+
+### Implementation Plan
+
+1. DM Infrastructure
+   - Create DM utilities:
+     - `getDMChannelId(user1: string, user2: string)` - Returns consistent channel ID
+     - `isDMChannel(channelId: string)` - Checks if channel is a DM
+     - `getDMParticipants(channelId: string)` - Extracts user IDs from DM channel
+   - Use existing message infrastructure:
+     - Reuse `/api/messages/[id]` for DM messages
+     - Leverage WebSocket for real-time updates
+     - Utilize existing DynamoDB tables
+
+2. DM UI Components
+   - Add DM section to Sidebar.tsx
+     - DM conversations list
+     - Online/offline status
+     - Unread indicators
+   - Create DMUserSelect component
+     - User search/filtering
+     - Recent conversations
+   - Update WorkspaceClient.tsx
+     - Handle DM channel routing
+     - DM-specific message display
+     - DM user status display
+
+3. DM Features
+   - Cross-workspace DM support
+     - Consistent channel IDs
+     - Global user presence
+   - Real-time updates
+     - Message delivery (using existing WebSocket)
+     - Typing indicators
+     - Read receipts
+   - DM notifications
+     - Unread counts
+     - Push notifications
+
+4. Performance Optimizations
+   - Message caching
+   - Conversation pagination
+   - Efficient presence updates
+
+### Current Focus
+- Creating DM utility functions
+- Implementing DM UI components
+- Following project-checklist.md Phase 2 order
+
+### Notes
+- Reusing existing WebSocket infrastructure
+- No need for new API routes or tables
+- Maintaining consistent message format
+- Following security best practices

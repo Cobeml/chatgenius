@@ -5,12 +5,13 @@ import { ScrollArea } from "@/app/components/ui/scroll-area";
 import { MessageInput } from "@/app/components/workspace/MessageInput";
 import { InviteModal } from "@/app/components/workspace/InviteModal";
 import { useSearchParams } from 'next/navigation';
-import { Download, LogOut, Settings, Hash, Lock, X, MessageSquare } from 'lucide-react';
+import { Download, LogOut, Settings, Hash, Lock, X, MessageSquare, User } from 'lucide-react';
 import Link from 'next/link';
 import { ChannelSettingsModal } from "@/app/components/workspace/ChannelSettingsModal";
 import { useSession } from "next-auth/react";
 import { useWebSocket } from '@/app/hooks/useWebSocket';
 import { Avatar, AvatarFallback } from '@/app/components/ui/avatar';
+import { isDMChannel, getDMDisplayName } from "@/app/utils/dm";
 
 // Add color generation function
 const getAvatarColor = (userId: string) => {
@@ -108,16 +109,26 @@ export default function WorkspaceClient({ workspaceId }: WorkspaceClientProps) {
     
     setIsLoading(true);
     try {
-      const response = await fetch(`/api/channels/${selectedChannelId}?workspaceId=${workspaceId}`);
-      if (!response.ok) throw new Error('Failed to fetch channel');
-      const data = await response.json();
-      setCurrentChannel(data);
+      if (isDMChannel(selectedChannelId)) {
+        // For DM channels, create a virtual channel object
+        setCurrentChannel({
+          id: selectedChannelId,
+          name: getDMDisplayName(selectedChannelId, session?.user?.email || '') || 'Unknown User',
+          isPrivate: true,
+          position: 0
+        });
+      } else {
+        const response = await fetch(`/api/channels/${selectedChannelId}?workspaceId=${workspaceId}`);
+        if (!response.ok) throw new Error('Failed to fetch channel');
+        const data = await response.json();
+        setCurrentChannel(data);
+      }
     } catch (error) {
       console.error('Error fetching channel:', error);
     } finally {
       setIsLoading(false);
     }
-  }, [selectedChannelId, workspaceId]);
+  }, [selectedChannelId, workspaceId, session?.user?.email]);
 
   useEffect(() => {
     if (selectedChannelId) {
@@ -434,7 +445,9 @@ export default function WorkspaceClient({ workspaceId }: WorkspaceClientProps) {
       <div className="h-12 min-h-[3rem] border-b flex items-center justify-between px-4">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
-            {currentChannel?.isPrivate ? (
+            {isDMChannel(currentChannel?.id || '') ? (
+              <User className="h-5 w-5 text-foreground" />
+            ) : currentChannel?.isPrivate ? (
               <Lock className="h-5 w-5 text-foreground" />
             ) : (
               <Hash className="h-5 w-5 text-foreground" />
@@ -443,7 +456,7 @@ export default function WorkspaceClient({ workspaceId }: WorkspaceClientProps) {
           </div>
         </div>
         <div className="flex gap-2">
-          {isAdmin && currentChannel && (
+          {isAdmin && currentChannel && !isDMChannel(currentChannel.id) && (
             <button
               onClick={() => setIsChannelSettingsOpen(true)}
               className="hover:bg-accent p-2 rounded-md transition-colors text-foreground"

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/auth";
 import { DynamoDB } from 'aws-sdk';
+import { isDMChannel, getDMParticipants } from "@/app/utils/dm";
 
 const dynamoDb = new DynamoDB.DocumentClient();
 
@@ -19,6 +20,14 @@ export async function GET(
     // Safely access the id parameter - need to await params now
     const { id } = await params;
     const channelId = id;
+
+    // For DM channels, verify the current user is a participant
+    if (isDMChannel(channelId)) {
+      const participants = getDMParticipants(channelId);
+      if (!participants?.includes(session.user.email?.toLowerCase() || '')) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+    }
 
     const queryParams = {
       TableName: process.env.AWS_DYNAMODB_MESSAGES_TABLE!,

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/auth";
 import { DynamoDB } from 'aws-sdk';
+import { isDMChannel } from "@/app/utils/dm";
 
 // Initialize DynamoDB client
 const dynamoDb = new DynamoDB.DocumentClient();
@@ -15,24 +16,34 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url);
-    const channelId = searchParams.get('channelId');
+    const userId = searchParams.get('userId');
 
-    if (!channelId) {
-      return NextResponse.json({ error: "Channel ID is required" }, { status: 400 });
+    if (!userId) {
+      return NextResponse.json({ error: "userId is required" }, { status: 400 });
     }
 
-    const params = {
+    // Scan for messages in DM channels involving the user
+    // Note: In production, you'd want to use a GSI for better performance
+    const scanParams = {
       TableName: process.env.AWS_DYNAMODB_MESSAGES_TABLE!,
-      KeyConditionExpression: 'channelId = :channelId',
+      FilterExpression: 'begins_with(channelId, :prefix)',
       ExpressionAttributeValues: {
-        ':channelId': channelId
-      },
-      ScanIndexForward: false, // This will return items in descending order
-      Limit: 50
+        ':prefix': 'dm_'
+      }
     };
 
-    const result = await dynamoDb.query(params).promise();
-    return NextResponse.json(result.Items || []);
+    const result = await dynamoDb.scan(scanParams).promise();
+    const messages = result.Items || [];
+
+    // Filter messages to only include DMs where the user is a participant
+    const userDMs = messages.filter(message => {
+      if (!isDMChannel(message.channelId)) return false;
+      const channelId = message.channelId.toLowerCase();
+      const userIdLower = userId.toLowerCase();
+      return channelId.includes(userIdLower);
+    });
+
+    return NextResponse.json(userDMs);
 
   } catch (error: unknown) {
     console.error("Fetch messages error:", error);
