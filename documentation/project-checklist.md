@@ -79,32 +79,25 @@
   - [ ] Thread caching
 
 ### Presence System
-- [ ] Online/offline status
-- [ ] User presence tracking
+- [x] Online/offline status
+- [x] User presence tracking
+- [x] Typing indicators
+- [x] Last Read Tracking
+  - [x] Infrastructure
+    - [x] Add last_read_message field to channel membership
+    - [x] Set up read status tracking in DynamoDB
+    - [x] Create read status API endpoints
+  - [x] UI Components
+    - [x] Unread message divider
+    - [x] Last read timestamp tracking
+    - [x] Scroll to first unread message
+  - [x] Features
+    - [x] Automatic read on view
+    - [x] Manual read status sync
+  - [x] Performance
+    - [x] Client-side read status cache
+    - [x] Optimize read queries
 - [ ] Last seen functionality
-- [ ] Typing indicators
-- [ ] Read Receipts
-  - [ ] Infrastructure
-    - [ ] Add last_read_message field to channel membership
-    - [ ] Set up read status tracking in DynamoDB
-    - [ ] Create read status API endpoints
-  - [ ] WebSocket Integration
-    - [ ] Add read_receipt message type
-    - [ ] Implement read status broadcasts
-    - [ ] Handle offline/reconnection sync
-  - [ ] UI Components
-    - [ ] Unread message divider
-    - [ ] Read status indicators
-    - [ ] Last read timestamp display
-  - [ ] Performance
-    - [ ] Batch read status updates
-    - [ ] Client-side read status cache
-    - [ ] Optimize read queries
-  - [ ] Features
-    - [ ] Automatic read on view
-    - [ ] Manual read status sync
-    - [ ] Read status in threads
-    - [ ] Cross-device status sync
 
 ### Direct Messages 🟡
 - [x] DM Infrastructure
@@ -120,13 +113,13 @@
 - [ ] DM Features
   - [x] Cross-workspace DM support
   - [ ] DM notifications
-  - [ ] DM read status
-  - [ ] DM typing indicators
-  - [ ] DM user presence
+  - [x] DM read status
+  - [x] DM typing indicators
+  - [x] DM user presence
 - [ ] DM Performance
   - [ ] DM message caching
   - [ ] DM conversation pagination
-  - [ ] DM real-time updates
+  - [x] DM real-time updates
 
 ## Phase 3: Rich Features 📋
 

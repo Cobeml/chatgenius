@@ -46,6 +46,7 @@ interface Channel {
   name: string;
   isPrivate: boolean;
   position: number;
+  isOnline?: boolean;
 }
 
 interface Message {
@@ -541,16 +542,25 @@ export default function WorkspaceClient({ workspaceId }: WorkspaceClientProps) {
     <div className="h-full flex flex-col overflow-hidden">
       <div className="h-12 min-h-[3rem] border-b flex items-center justify-between px-4">
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            {isDMChannel(currentChannel?.id || '') ? (
+          {isDMChannel(currentChannel?.id || '') ? (
+            <div className="flex items-center gap-2">
               <User className="h-5 w-5 text-foreground" />
-            ) : currentChannel?.isPrivate ? (
+              <h1 className="font-semibold">{currentChannel?.name || 'Select a channel'}</h1>
+              {currentChannel && (
+                <div className={`w-2 h-2 rounded-full ${currentChannel.isOnline ? 'bg-green-500' : 'bg-gray-400'}`} />
+              )}
+            </div>
+          ) : currentChannel?.isPrivate ? (
+            <div className="flex items-center gap-2">
               <Lock className="h-5 w-5 text-foreground" />
-            ) : (
+              <h1 className="font-semibold">{currentChannel?.name || 'Select a channel'}</h1>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
               <Hash className="h-5 w-5 text-foreground" />
-            )}
-            <h1 className="font-semibold">{currentChannel?.name || 'Select a channel'}</h1>
-          </div>
+              <h1 className="font-semibold">{currentChannel?.name || 'Select a channel'}</h1>
+            </div>
+          )}
         </div>
         <div className="flex gap-2">
           {isAdmin && currentChannel && !isDMChannel(currentChannel.id) && (
@@ -728,6 +738,18 @@ export default function WorkspaceClient({ workspaceId }: WorkspaceClientProps) {
           </ScrollArea>
 
           <div className="p-2 border-t">
+            {Object.keys(typingUsers).length > 0 && (
+              <div className="text-xs text-muted-foreground italic mb-2">
+                {Object.keys(typingUsers).length === 1
+                  ? `${typingUsers[Object.keys(typingUsers)[0]]} is typing...`
+                  : Object.keys(typingUsers).length === 2
+                  ? `${typingUsers[Object.keys(typingUsers)[0]]} and ${typingUsers[Object.keys(typingUsers)[1]]} are typing...`
+                  : `${Object.keys(typingUsers)
+                      .slice(0, -1)
+                      .map(id => typingUsers[id])
+                      .join(', ')} and ${typingUsers[Object.keys(typingUsers)[Object.keys(typingUsers).length - 1]]} are typing...`}
+              </div>
+            )}
             <MessageInput 
               channelId={selectedChannelId || ''}
               onMessageSent={handleSendMessage}

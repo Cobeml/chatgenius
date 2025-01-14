@@ -2,10 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/app/components/ui/dialog";
+import { X } from 'lucide-react';
+import { useSession } from "next-auth/react";
 
 interface WorkspaceMember {
   email: string;
   role: 'owner' | 'admin' | 'member';
+  isOnline?: boolean;
 }
 
 interface WorkspaceSettings {
@@ -27,6 +30,9 @@ export function SettingsModal({ isOpen, onClose, workspaceId, initialSettings }:
   });
 
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
+  const { data: session } = useSession();
+  const isAdmin = members.find(m => m.email === session?.user?.email)?.role === 'owner' || 
+                 members.find(m => m.email === session?.user?.email)?.role === 'admin';
 
   useEffect(() => {
     const fetchMembers = async () => {
@@ -82,6 +88,10 @@ export function SettingsModal({ isOpen, onClose, workspaceId, initialSettings }:
     }
   };
 
+  const handleRemoveMember = async (email: string) => {
+    // ... rest of the existing code ...
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[425px]">
@@ -107,7 +117,7 @@ export function SettingsModal({ isOpen, onClose, workspaceId, initialSettings }:
                 <div
                   key={member.email}
                   className="group hover:bg-primary-hover/10 p-3 rounded-lg border border-primary-hover/20 
-                           transition-all duration-200 flex justify-between items-center"
+                            transition-all duration-200 flex justify-between items-center"
                 >
                   <div className="flex items-center space-x-3">
                     <div className="w-8 h-8 rounded-md bg-primary-hover/20 flex items-center justify-center">
@@ -115,7 +125,10 @@ export function SettingsModal({ isOpen, onClose, workspaceId, initialSettings }:
                         {member.email[0].toUpperCase()}
                       </span>
                     </div>
-                    <span className="text-sm">{member.email}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm">{member.email}</span>
+                      <div className={`w-2 h-2 rounded-full ${member.isOnline ? 'bg-green-500' : 'bg-gray-400'}`} />
+                    </div>
                   </div>
                   <span className="text-sm text-text/60 group-hover:text-text/80 transition-colors">
                     {member.role}

@@ -23,11 +23,13 @@ interface Channel {
 
 interface DMChannel {
   id: string;
+  name: string;
+  unreadCount?: number;
+  isOnline?: boolean;
   lastMessage?: {
     content: string;
     timestamp: string;
   };
-  unreadCount?: number;
 }
 
 interface WorkspaceData {
@@ -108,6 +110,7 @@ export function Sidebar({ workspaceId }: { workspaceId: string }) {
           if (!existing || new Date(message.timestamp) > new Date(existing.lastMessage?.timestamp || '')) {
             dmChannelsMap.set(message.channelId, {
               id: message.channelId,
+              name: getDMDisplayName(message.channelId, session?.user?.email || '') || 'Unknown User',
               lastMessage: {
                 content: message.content,
                 timestamp: message.timestamp
@@ -329,6 +332,7 @@ export function Sidebar({ workspaceId }: { workspaceId: string }) {
                       <span className={`truncate ${selectedChannelId === channelId ? 'text-accent-foreground font-medium' : ''}`}>
                         {member.email}
                       </span>
+                      <div className={`w-2 h-2 rounded-full ml-2 ${dmChannel?.isOnline ? 'bg-green-500' : 'bg-gray-400'}`} />
                     </div>
                     {dmChannel?.unreadCount && dmChannel.unreadCount > 0 && (
                       <span className="bg-primary text-primary-foreground text-xs px-1.5 rounded-full">
